@@ -10,6 +10,7 @@ use pyo3::IntoPyObjectExt;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
 use saphyr_parser::{Parser, ScalarStyle};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
 use std::io::{self, Write};
@@ -31,8 +32,177 @@ enum TagClass {
     NonCore,
 }
 
-#[pyfunction(signature = (text, multi=false))]
-fn parse_yaml(py: Python<'_>, text: PyObject, multi: bool) -> Result<PyObject> {
+#[derive(Clone, Hash, PartialEq, Eq)]
+struct HandlerKeyOwned {
+    handle: String,
+    suffix: String,
+}
+
+impl HandlerKeyOwned {
+    fn matches(&self, key: HandlerKeyRef<'_>) -> bool {
+        self.handle == key.handle && self.suffix == key.suffix
+    }
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+struct HandlerKeyRef<'a> {
+    handle: &'a str,
+    suffix: &'a str,
+}
+
+impl<'a> From<&'a Tag> for HandlerKeyRef<'a> {
+    fn from(tag: &'a Tag) -> Self {
+        Self {
+            handle: tag.handle.as_str(),
+            suffix: tag.suffix.as_str(),
+        }
+    }
+}
+
+struct HandlerEntry {
+    key: HandlerKeyOwned,
+    handler: Py<PyAny>,
+}
+
+enum HandlerStore {
+    Small(Vec<HandlerEntry>),
+    Large(HashMap<HandlerKeyOwned, Py<PyAny>>),
+}
+
+struct HandlerRegistry {
+    store: HandlerStore,
+}
+
+impl HandlerRegistry {
+    fn from_py(_py: Python<'_>, handlers: Option<&Bound<'_, PyAny>>) -> Result<Option<Self>> {
+        let Some(obj) = handlers else {
+            return Ok(None);
+        };
+
+        if obj.is_none() {
+            return Ok(None);
+        }
+
+        let dict: &Bound<'_, PyDict> = obj.downcast().map_err(|_| {
+            PyTypeError::new_err("`handlers` must be a dict mapping tag strings to callables")
+        })?;
+        if dict.is_empty() {
+            return Ok(None);
+        }
+
+        const HASHMAP_MIN_LEN: usize = 8;
+        let use_hash_map = dict.len() >= HASHMAP_MIN_LEN;
+
+        if use_hash_map {
+            let mut handlers_map = HashMap::with_capacity(dict.len());
+            for (key_obj, value_obj) in dict.iter() {
+                let key_str = key_obj.downcast::<PyString>().map_err(|_| {
+                    PyTypeError::new_err("handler keys must be strings or subclasses of str")
+                })?;
+                let key_text = key_str.to_str()?;
+                let key = parse_handler_name(key_text)?;
+                if !value_obj.is_callable() {
+                    return Err(PyTypeError::new_err(format!(
+                        "handler `{}` must be callable",
+                        key_text
+                    )));
+                }
+                handlers_map.insert(key, value_obj.unbind());
+            }
+            return Ok(Some(Self {
+                store: HandlerStore::Large(handlers_map),
+            }));
+        }
+
+        let mut entries: Vec<HandlerEntry> = Vec::with_capacity(dict.len());
+        for (key_obj, value_obj) in dict.iter() {
+            let key_str = key_obj.downcast::<PyString>().map_err(|_| {
+                PyTypeError::new_err("handler keys must be strings or subclasses of str")
+            })?;
+            let key_text = key_str.to_str()?;
+            let key = parse_handler_name(key_text)?;
+            if !value_obj.is_callable() {
+                return Err(PyTypeError::new_err(format!(
+                    "handler `{}` must be callable",
+                    key_text
+                )));
+            }
+
+            if let Some(existing) = entries.iter_mut().find(|entry| entry.key == key) {
+                existing.handler = value_obj.unbind();
+            } else {
+                entries.push(HandlerEntry {
+                    key,
+                    handler: value_obj.unbind(),
+                });
+            }
+        }
+
+        Ok(Some(Self {
+            store: HandlerStore::Small(entries),
+        }))
+    }
+
+    fn get_for_tag(&self, tag: &Tag) -> Option<&Py<PyAny>> {
+        let key_ref = HandlerKeyRef::from(tag);
+        match &self.store {
+            HandlerStore::Small(entries) => entries
+                .iter()
+                .find(|entry| entry.key.matches(key_ref))
+                .map(|entry| &entry.handler),
+            HandlerStore::Large(map) => {
+                let lookup = HandlerKeyOwned {
+                    handle: key_ref.handle.to_string(),
+                    suffix: key_ref.suffix.to_string(),
+                };
+                map.get(&lookup)
+            }
+        }
+    }
+
+    fn apply(&self, py: Python<'_>, handler: &Py<PyAny>, arg: PyObject) -> Result<PyObject> {
+        handler.bind(py).call1((arg,)).map(|obj| obj.unbind())
+    }
+}
+
+fn parse_handler_name(name: &str) -> Result<HandlerKeyOwned> {
+    if let Some((handle, suffix)) = split_tag_name(name) {
+        return Ok(HandlerKeyOwned {
+            handle: handle.to_string(),
+            suffix: suffix.to_string(),
+        });
+    }
+    Err(PyTypeError::new_err(
+        "`handlers` keys must be valid YAML tag strings",
+    ))
+}
+
+fn split_tag_name(name: &str) -> Option<(&str, &str)> {
+    if let Some(pos) = name.rfind('!') {
+        if pos + 1 < name.len() {
+            let (handle, suffix) = name.split_at(pos + 1);
+            return Some((handle, suffix));
+        }
+    }
+    if let Some(pos) = name.rfind(':') {
+        if pos + 1 < name.len() {
+            let (handle, suffix) = name.split_at(pos + 1);
+            return Some((handle, suffix));
+        }
+    }
+    None
+}
+
+#[pyfunction(signature = (text, multi=false, handlers=None))]
+fn parse_yaml(
+    py: Python<'_>,
+    text: PyObject,
+    multi: bool,
+    handlers: Option<PyObject>,
+) -> Result<PyObject> {
+    let handler_registry = HandlerRegistry::from_py(py, handlers.as_ref().map(|obj| obj.bind(py)))?;
+    let handlers = handler_registry.as_ref();
+
     let bound = text.bind(py);
     let joined = join_text(bound)?;
     if joined.is_none() {
@@ -40,9 +210,14 @@ fn parse_yaml(py: Python<'_>, text: PyObject, multi: bool) -> Result<PyObject> {
     }
     let src = joined.as_deref().unwrap();
     let docs = load_yaml_documents(src, multi)?;
-    let mut out = docs_to_python(py, docs, multi)?;
+    let mut out = docs_to_python(py, docs, multi, handlers)?;
     if !multi {
         if let Some(tag) = leading_tag(src) {
+            if let (Some(registry), Ok(parsed_tag)) = (handlers, parse_tag_string(&tag)) {
+                if let Some(handler) = registry.get_for_tag(&parsed_tag) {
+                    return registry.apply(py, handler, out);
+                }
+            }
             if !is_tagged_instance(py, &out)? {
                 out = make_tagged(py, out, &tag)?;
             }
@@ -51,12 +226,20 @@ fn parse_yaml(py: Python<'_>, text: PyObject, multi: bool) -> Result<PyObject> {
     Ok(out)
 }
 
-#[pyfunction(signature = (path, multi=false))]
-fn read_yaml(py: Python<'_>, path: &str, multi: bool) -> Result<PyObject> {
+#[pyfunction(signature = (path, multi=false, handlers=None))]
+fn read_yaml(
+    py: Python<'_>,
+    path: &str,
+    multi: bool,
+    handlers: Option<PyObject>,
+) -> Result<PyObject> {
+    let handler_registry = HandlerRegistry::from_py(py, handlers.as_ref().map(|obj| obj.bind(py)))?;
+    let handlers = handler_registry.as_ref();
+
     let contents = fs::read_to_string(path)
         .map_err(|err| PyIOError::new_err(format!("failed to read `{path}`: {err}")))?;
     let docs = load_yaml_documents(&contents, multi)?;
-    docs_to_python(py, docs, multi)
+    docs_to_python(py, docs, multi, handlers)
 }
 
 #[pyfunction(signature = (value, multi=false))]
@@ -115,16 +298,21 @@ fn join_text(text: &Bound<'_, PyAny>) -> Result<Option<String>> {
     ))
 }
 
-fn docs_to_python(py: Python<'_>, mut docs: Vec<Yaml<'_>>, multi: bool) -> Result<PyObject> {
+fn docs_to_python(
+    py: Python<'_>,
+    mut docs: Vec<Yaml<'_>>,
+    multi: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Result<PyObject> {
     if multi {
         let mut values = Vec::with_capacity(docs.len());
         for doc in docs.iter_mut() {
-            values.push(yaml_to_py(py, doc, false)?);
+            values.push(yaml_to_py(py, doc, false, handlers)?);
         }
         Ok(PyList::new(py, values)?.unbind().into())
     } else {
         match docs.first_mut() {
-            Some(doc) => yaml_to_py(py, doc, false),
+            Some(doc) => yaml_to_py(py, doc, false, handlers),
             None => Ok(py.None()),
         }
     }
@@ -192,12 +380,17 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     *node = parsed;
 }
 
-fn yaml_to_py(py: Python<'_>, node: &mut Yaml, is_key: bool) -> Result<PyObject> {
+fn yaml_to_py(
+    py: Python<'_>,
+    node: &mut Yaml,
+    is_key: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Result<PyObject> {
     match node {
         Yaml::Value(scalar) => Ok(scalar_to_py(py, scalar)),
-        Yaml::Tagged(tag, inner) => convert_tagged(py, tag, inner.as_mut(), is_key),
-        Yaml::Sequence(seq) => sequence_to_py(py, seq, is_key),
-        Yaml::Mapping(map) => mapping_to_py(py, map, is_key),
+        Yaml::Tagged(tag, inner) => convert_tagged(py, tag, inner.as_mut(), is_key, handlers),
+        Yaml::Sequence(seq) => sequence_to_py(py, seq, is_key, handlers),
+        Yaml::Mapping(map) => mapping_to_py(py, map, is_key, handlers),
         Yaml::Alias(_) => Err(PyValueError::new_err(
             "internal error: encountered unresolved YAML alias node",
         )),
@@ -206,7 +399,7 @@ fn yaml_to_py(py: Python<'_>, node: &mut Yaml, is_key: bool) -> Result<PyObject>
         )),
         Yaml::Representation(_, _, _) => {
             resolve_representation(node, true);
-            yaml_to_py(py, node, is_key)
+            yaml_to_py(py, node, is_key, handlers)
         }
     }
 }
@@ -241,11 +434,16 @@ fn scalar_to_string(scalar: &Scalar) -> String {
     }
 }
 
-fn sequence_to_py(py: Python<'_>, seq: &mut [Yaml], is_key: bool) -> Result<PyObject> {
+fn sequence_to_py(
+    py: Python<'_>,
+    seq: &mut [Yaml],
+    is_key: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Result<PyObject> {
     let mut values = Vec::with_capacity(seq.len());
     for node in seq {
         resolve_representation(node, true);
-        values.push(yaml_to_py(py, node, is_key)?);
+        values.push(yaml_to_py(py, node, is_key, handlers)?);
     }
     if is_key {
         Ok(PyTuple::new(py, values)?.unbind().into())
@@ -254,7 +452,12 @@ fn sequence_to_py(py: Python<'_>, seq: &mut [Yaml], is_key: bool) -> Result<PyOb
     }
 }
 
-fn mapping_to_py(py: Python<'_>, map: &mut Mapping, is_key: bool) -> Result<PyObject> {
+fn mapping_to_py(
+    py: Python<'_>,
+    map: &mut Mapping,
+    is_key: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Result<PyObject> {
     let len = map.len();
 
     if is_key {
@@ -262,8 +465,8 @@ fn mapping_to_py(py: Python<'_>, map: &mut Mapping, is_key: bool) -> Result<PyOb
         for (mut key, mut value) in mem::take(map) {
             resolve_representation(&mut key, true);
             resolve_representation(&mut value, true);
-            let k_obj = yaml_to_py(py, &mut key, true)?;
-            let v_obj = yaml_to_py(py, &mut value, true)?;
+            let k_obj = yaml_to_py(py, &mut key, true, handlers)?;
+            let v_obj = yaml_to_py(py, &mut value, true, handlers)?;
             pairs.push((k_obj, v_obj));
         }
         return Ok(PyTuple::new(py, pairs)?.unbind().into());
@@ -272,28 +475,40 @@ fn mapping_to_py(py: Python<'_>, map: &mut Mapping, is_key: bool) -> Result<PyOb
     let dict = PyDict::new(py);
     for (mut key, mut value) in mem::take(map) {
         resolve_representation(&mut key, true);
-        let key_obj = yaml_to_py(py, &mut key, true)?;
+        let key_obj = yaml_to_py(py, &mut key, true, handlers)?;
         // Ensure the key is hashable; propagate Python's TypeError for clarity.
         key_obj.bind(py).hash()?;
-        let value_obj = yaml_to_py(py, &mut value, false)?;
+        let value_obj = yaml_to_py(py, &mut value, false, handlers)?;
         dict.set_item(key_obj, value_obj)?;
     }
     Ok(dict.into())
 }
 
-fn convert_tagged(py: Python<'_>, tag: &Tag, node: &mut Yaml, is_key: bool) -> Result<PyObject> {
+fn convert_tagged(
+    py: Python<'_>,
+    tag: &Tag,
+    node: &mut Yaml,
+    is_key: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Result<PyObject> {
     let rendered = render_tag(tag);
     if rendered == "!" {
         if let Yaml::Value(scalar) = node {
             let s = scalar_to_string(scalar);
             return Ok(PyString::new(py, &s).unbind().into());
         }
-        return yaml_to_py(py, node, is_key);
+        return yaml_to_py(py, node, is_key, handlers);
+    }
+    if let Some(registry) = handlers {
+        if let Some(handler) = registry.get_for_tag(tag) {
+            let value = yaml_to_py(py, node, is_key, handlers)?;
+            return registry.apply(py, handler, value);
+        }
     }
     match classify_tag(tag) {
-        TagClass::Canonical(_) => yaml_to_py(py, node, is_key),
+        TagClass::Canonical(_) => yaml_to_py(py, node, is_key, handlers),
         TagClass::Core | TagClass::NonCore => {
-            let value = yaml_to_py(py, node, is_key)?;
+            let value = yaml_to_py(py, node, is_key, handlers)?;
             make_tagged(py, value, &rendered)
         }
     }
