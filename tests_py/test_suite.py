@@ -66,14 +66,9 @@ def _strip_tags(obj):
 def test_yaml_suite_cases(kind: Literal["json", "error"], case_dir: Path):
     in_yaml = (case_dir / "in.yaml").read_text(encoding="utf-8")
 
-    # Cases currently unsupported/too permissive; mark as expected skips.
-    skip_cases = {"4H7K", "BS4K", "KS4U", "QLJ7"}
-    if case_dir.name in skip_cases:
-        pytest.skip(f"Known unsupported case {case_dir.name}")
-
     if kind == "error":
         try:
-            yaml12.parse_yaml(in_yaml)
+            yaml12.parse_yaml(in_yaml, multi=True)
         except Exception:
             return
         pytest.xfail(f"Parser accepted error-marked case {case_dir.name}")
