@@ -16,18 +16,18 @@ def _load_yaml_multi(text: str):
     return yaml12.parse_yaml(text, multi=True)
 
 
-def _iter_cases() -> Iterable[Tuple[Literal["json", "error"], Path]]:
-    for case_dir in sorted(p for p in CASE_ROOT.iterdir() if p.is_dir()):
-        in_yaml = case_dir / "in.yaml"
+def _iter_cases() -> Iterable[Tuple[Literal["json", "error", "parse_only"], Path]]:
+    for in_yaml in sorted(CASE_ROOT.rglob("in.yaml")):
+        case_dir = in_yaml.parent
         in_json = case_dir / "in.json"
         error_marker = case_dir / "error"
 
-        if not in_yaml.exists():
-            continue
         if error_marker.exists():
             yield ("error", case_dir)
         elif in_json.exists():
             yield ("json", case_dir)
+        else:
+            yield ("parse_only", case_dir)
 
 
 def _parse_json_stream(text: str):
@@ -63,7 +63,9 @@ def _strip_tags(obj):
     _iter_cases(),
     ids=lambda kc: f"{kc[0]}:{kc[1].name}" if isinstance(kc, tuple) else str(kc),
 )
-def test_yaml_suite_cases(kind: Literal["json", "error"], case_dir: Path):
+def test_yaml_suite_cases(
+    kind: Literal["json", "error", "parse_only"], case_dir: Path
+):
     in_yaml = (case_dir / "in.yaml").read_text(encoding="utf-8")
 
     if kind == "error":
@@ -79,3 +81,6 @@ def test_yaml_suite_cases(kind: Literal["json", "error"], case_dir: Path):
         actual_stream = _load_yaml_multi(in_yaml)
         assert _strip_tags(actual_stream) == expected_stream
         return
+
+    actual_stream = _load_yaml_multi(in_yaml)
+    assert isinstance(actual_stream, list)
