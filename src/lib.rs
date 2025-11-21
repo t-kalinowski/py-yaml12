@@ -490,7 +490,7 @@ class Tagged:
 }
 
 #[pymodule]
-fn yaml12(py: Python<'_>, m: &Bound<'_, PyModule>) -> Result<()> {
+pub fn yaml12(py: Python<'_>, m: &Bound<'_, PyModule>) -> Result<()> {
     init_tagged_class(py, m)?;
     m.add_function(wrap_pyfunction!(parse_yaml, m)?)?;
     m.add_function(wrap_pyfunction!(read_yaml, m)?)?;
