@@ -40,13 +40,13 @@ struct HandlerKeyOwned {
 
 impl PartialEq<HandlerKeyRef<'_>> for HandlerKeyOwned {
     fn eq(&self, other: &HandlerKeyRef<'_>) -> bool {
-        self.normalized_parts() == other.normalized_parts()
+        self.handle == other.handle && self.suffix == other.suffix
     }
 }
 
 impl PartialEq<HandlerKeyOwned> for HandlerKeyRef<'_> {
     fn eq(&self, other: &HandlerKeyOwned) -> bool {
-        self.normalized_parts() == other.normalized_parts()
+        self.handle == other.handle && self.suffix == other.suffix
     }
 }
 
@@ -67,7 +67,6 @@ impl<'a> From<&'a Tag> for HandlerKeyRef<'a> {
 
 impl HandlerKeyOwned {
     fn from_parts(handle: &str, suffix: &str) -> Self {
-        let (handle, suffix) = normalize_tag_parts(handle, suffix);
         Self {
             handle: handle.to_string(),
             suffix: suffix.to_string(),
@@ -78,22 +77,14 @@ impl HandlerKeyOwned {
         Self::from_parts(tag.handle.as_str(), tag.suffix.as_str())
     }
 
-    fn normalized_parts(&self) -> (&str, &str) {
-        normalize_tag_parts(self.handle.as_str(), self.suffix.as_str())
-    }
-
     fn is_non_specific(&self) -> bool {
-        self.normalized_parts() == ("", "!")
+        self.handle.is_empty() && self.suffix == "!"
     }
 }
 
 impl<'a> HandlerKeyRef<'a> {
-    fn normalized_parts(self) -> (&'a str, &'a str) {
-        normalize_tag_parts(self.handle, self.suffix)
-    }
-
     fn is_non_specific(self) -> bool {
-        self.normalized_parts() == ("", "!")
+        self.handle.is_empty() && self.suffix == "!"
     }
 }
 
@@ -246,14 +237,6 @@ fn split_tag_name(name: &str) -> Option<(&str, &str)> {
         }
     }
     None
-}
-
-fn normalize_tag_parts<'a>(handle: &'a str, suffix: &'a str) -> (&'a str, &'a str) {
-    if (handle == "!" && suffix.is_empty()) || (handle.is_empty() && suffix == "!") {
-        ("", "!")
-    } else {
-        (handle, suffix)
-    }
 }
 
 #[pyfunction(signature = (text, multi=false, handlers=None))]
@@ -617,6 +600,7 @@ fn convert_tagged(
     is_key: bool,
     handlers: Option<&HandlerRegistry>,
 ) -> Result<PyObject> {
+    // dbg!(tag);
     let rendered = render_tag(tag);
     if let Some(registry) = handlers {
         if let Some(handler) = registry.get_for_tag(tag) {
