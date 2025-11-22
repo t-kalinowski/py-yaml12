@@ -194,6 +194,24 @@ fn split_tag_name(name: &str) -> Option<(&str, &str)> {
 }
 
 #[pyfunction(signature = (text, multi=false, handlers=None))]
+/// Parse YAML text into Python values.
+///
+/// Args:
+///     text (str | Sequence[str]): YAML text or sequence joined with newlines.
+///     multi (bool): Return a list of documents when true; otherwise a single document or None for empty input.
+///     handlers (dict[str, Callable] | None): Optional tag handlers for values and keys; matching handlers receive the parsed value.
+///
+/// Returns:
+///     object: Parsed value(s); non-core tags become Tagged when no handler matches.
+///
+/// Raises:
+///     ValueError: On YAML parse errors or invalid tag strings.
+///     TypeError: When inputs are the wrong type or handlers are not callables.
+///     Exception: Propagated directly from user-provided handlers.
+///
+/// Examples:
+///     >>> parse_yaml('foo: 1\nbar: true')
+///     {'foo': 1, 'bar': True}
 fn parse_yaml(
     py: Python<'_>,
     text: PyObject,
@@ -227,6 +245,25 @@ fn parse_yaml(
 }
 
 #[pyfunction(signature = (path, multi=false, handlers=None))]
+/// Read a YAML file from `path` and parse it.
+///
+/// Args:
+///     path (str): Filesystem path to the YAML file to read.
+///     multi (bool): Return a list of documents when true; otherwise a single document or None for empty input.
+///     handlers (dict[str, Callable] | None): Optional tag handlers for values and keys; matching handlers receive the parsed value.
+///
+/// Returns:
+///     object: Parsed value(s); non-core tags become Tagged when no handler matches.
+///
+/// Raises:
+///     IOError: When the file cannot be read.
+///     ValueError: On YAML parse errors or invalid tag strings.
+///     TypeError: When handlers are not callables or inputs are the wrong type.
+///     Exception: Propagated directly from user-provided handlers.
+///
+/// Examples:
+///     >>> read_yaml('config.yml')
+///     {'debug': True}
 fn read_yaml(
     py: Python<'_>,
     path: &str,
@@ -243,6 +280,23 @@ fn read_yaml(
 }
 
 #[pyfunction(signature = (value, multi=false))]
+/// Serialize a Python value to a YAML string.
+///
+/// Args:
+///     value (object): Python value or Tagged to serialize; for `multi` the value must be a sequence of documents.
+///     multi (bool): Emit a multi-document stream when true; otherwise a single document.
+///
+/// Returns:
+///     str: YAML text; multi-document streams end with `...`.
+///
+/// Raises:
+///     TypeError: When `multi` is true and value is not a sequence, or unsupported types are provided.
+///
+/// Examples:
+///     >>> format_yaml({'foo': 1})
+///     'foo: 1\n'
+///     >>> format_yaml(['first', 'second'], multi=True).endswith('...\n')
+///     True
 fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<String> {
     let bound = value.bind(py);
     let yaml = py_to_yaml(py, bound, false)?;
@@ -254,6 +308,25 @@ fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<String> {
 }
 
 #[pyfunction(signature = (value, path=None, multi=false))]
+/// Write a Python value to YAML at `path` or stdout.
+///
+/// Args:
+///     value (object): Python value or Tagged to serialize; for `multi` the value must be a sequence of documents.
+///     path (str | None): Destination file path; when None the YAML is written to stdout.
+///     multi (bool): Emit a multi-document stream when true; otherwise a single document.
+///
+/// Returns:
+///     None
+///
+/// Raises:
+///     IOError: When writing to the file or stdout fails.
+///     TypeError: When `multi` is true and value is not a sequence, or unsupported types are provided.
+///
+/// Examples:
+///     >>> write_yaml({'foo': 1}, path='out.yml')
+///     >>> Path('out.yml').exists()
+///     True
+///     >>> write_yaml(['first', 'second'], multi=True)  # prints YAML ending with '...'
 fn write_yaml(py: Python<'_>, value: PyObject, path: Option<&str>, multi: bool) -> Result<()> {
     let bound = value.bind(py);
     let yaml = py_to_yaml(py, bound, false)?;
