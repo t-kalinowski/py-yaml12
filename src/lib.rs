@@ -131,8 +131,8 @@ impl HandlerRegistry {
                 let key_str = key_obj.downcast::<PyString>().map_err(|_| {
                     PyTypeError::new_err("handler keys must be strings or subclasses of str")
                 })?;
-                let key_text = key_str.to_cow()?;
-                let key = parse_handler_name(key_text.as_ref())?;
+                let key_text = key_str.to_str()?;
+                let key = parse_handler_name(key_text)?;
                 if !value_obj.is_callable() {
                     return Err(PyTypeError::new_err(format!(
                         "handler `{}` must be callable",
@@ -156,8 +156,8 @@ impl HandlerRegistry {
             let key_str = key_obj.downcast::<PyString>().map_err(|_| {
                 PyTypeError::new_err("handler keys must be strings or subclasses of str")
             })?;
-            let key_text = key_str.to_cow()?;
-            let key = parse_handler_name(key_text.as_ref())?;
+            let key_text = key_str.to_str()?;
+            let key = parse_handler_name(key_text)?;
             if !value_obj.is_callable() {
                 return Err(PyTypeError::new_err(format!(
                     "handler `{}` must be callable",
@@ -393,7 +393,7 @@ fn write_yaml(py: Python<'_>, value: PyObject, path: Option<&str>, multi: bool) 
 
 fn join_text(text: &Bound<'_, PyAny>) -> Result<Option<String>> {
     if let Ok(s) = text.downcast::<PyString>() {
-        return Ok(Some(s.to_cow()?.into_owned()));
+        return Ok(Some(s.to_str()?.to_owned()));
     }
 
     if let Ok(seq) = text.downcast::<PySequence>() {
@@ -407,7 +407,7 @@ fn join_text(text: &Bound<'_, PyAny>) -> Result<Option<String>> {
             let s = item.downcast::<PyString>().map_err(|_| {
                 PyTypeError::new_err("`text` sequence must contain only strings without None")
             })?;
-            parts.push(s.to_cow()?.into_owned());
+            parts.push(s.to_str()?.to_owned());
         }
         return Ok(Some(parts.join("\n")));
     }
@@ -760,15 +760,15 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
 
     if let Ok(s) = obj.downcast::<PyString>() {
         return Ok(Yaml::Value(Scalar::String(Cow::Owned(
-            s.to_cow()?.into_owned(),
+            s.to_str()?.to_owned(),
         ))));
     }
 
     if is_tagged(py, obj)? {
         let value_obj = obj.getattr("value")?;
         let tag_obj = obj.getattr("tag")?;
-        let tag_str = tag_obj.downcast::<PyString>()?.to_cow()?;
-        let tag = parse_tag_string(tag_str.as_ref())?;
+        let tag_str = tag_obj.downcast::<PyString>()?.to_str()?;
+        let tag = parse_tag_string(tag_str)?;
         let inner = py_to_yaml(py, &value_obj, is_key)?;
         return Ok(Yaml::Tagged(Cow::Owned(tag), Box::new(inner)));
     }

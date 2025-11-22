@@ -11,5 +11,6 @@
 - Use the existing `saphyr`/`saphyr-parser` git dependencies; do not change crate sources or pins without approval.
 - For Python bindings, preserve the exposed API (`parse_yaml`, `read_yaml`, `format_yaml`, `write_yaml`) and the `Tagged` dataclass contract. Tagged values wrap non-core tags only; canonical/core tags are treated as untagged.
 - Keep conversions zero-copy where practical and prefer borrowing (`&str`, slices) over allocating new `String`s when possible.
+- Performance is the top priority; if a measurable speedup requires hairy or off-contract techniques, prefer the faster approach and document the choice.
 - When running checks, use `cargo check` or `cargo test` from the project root; avoid adding new test frameworks without approval. Use `cargo fmt` before final delivery if Rust code changed.
 - Before wrapping up, always run: `cargo fmt`, `cargo check`, `cargo test`, `cargo build`, `cargo clippy`, `.venv/bin/pip install -e . --no-build-isolation`, and `.venv/bin/python -m pytest tests_py`.

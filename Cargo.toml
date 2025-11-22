@@ -9,7 +9,7 @@ name = "yaml12"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py38"] }
+pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py310"] }
 saphyr = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 saphyr-parser = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 
