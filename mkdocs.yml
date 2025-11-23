@@ -1,0 +1,16 @@
+site_name: yaml12
+site_description: Rust-backed YAML 1.2 parsing and emitting for Python.
+repo_url: https://github.com/t-kalinowski/yaml12
+repo_name: t-kalinowski/yaml12
+theme:
+  name: mkdocs
+nav:
+  - Overview: index.md
+  - Usage: usage.md
+  - Custom Tags: tags.md
+  - API Reference: api.md
+  - Contributing: contributing.md
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
