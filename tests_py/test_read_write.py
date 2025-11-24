@@ -32,13 +32,7 @@ def test_write_yaml_defaults_to_stdout_when_path_is_none(capfd: pytest.CaptureFi
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
 
-    expected = textwrap.dedent(
-        f"""\
-        ---
-        {encoded}
-        ...
-        """
-    )
+    expected = f"---\n{encoded}\n...\n"
 
     assert output == expected
     assert yaml12.parse_yaml(output) == value
