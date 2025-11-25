@@ -435,42 +435,41 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
 
     let parsed = match tag {
         Some(tag) => {
-            let owned_tag: Cow<'static, Tag> = Cow::Owned(tag.into_owned());
-            if owned_tag.is_yaml_core_schema() {
-                match owned_tag.suffix.as_str() {
-                    "str" => Yaml::value_from_cow_and_metadata(value, style, Some(&owned_tag)),
+            let is_core_schema = tag.is_yaml_core_schema();
+            let normalized_suffix = normalized_suffix(tag.suffix.as_str());
+
+            if is_core_schema {
+                match tag.suffix.as_str() {
+                    "str" => Yaml::value_from_cow_and_metadata(value, style, Some(&tag)),
                     "null" => {
                         if is_plain_empty {
                             Yaml::Value(Scalar::Null)
                         } else {
-                            Yaml::value_from_cow_and_metadata(value, style, Some(&owned_tag))
+                            Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
                         }
                     }
                     "binary" | "set" | "omap" | "pairs" | "timestamp" => {
-                        Yaml::Tagged(owned_tag, Box::new(Yaml::Value(Scalar::String(value))))
+                        Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
                     }
                     _ => {
-                        let parsed = Yaml::value_from_cow_and_metadata(
-                            value.clone(),
-                            style,
-                            Some(&owned_tag),
-                        );
+                        let parsed =
+                            Yaml::value_from_cow_and_metadata(value.clone(), style, Some(&tag));
                         if matches!(parsed, Yaml::BadValue)
                             && !matches!(
-                                owned_tag.suffix.as_str(),
+                                tag.suffix.as_str(),
                                 "bool" | "int" | "float" | "null" | "str"
                             )
                         {
-                            Yaml::Tagged(owned_tag, Box::new(Yaml::Value(Scalar::String(value))))
+                            Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
                         } else {
                             parsed
                         }
                     }
                 }
-            } else if is_effective_core_null(owned_tag.as_ref()) {
+            } else if is_effective_core_null(&tag, is_core_schema, normalized_suffix) {
                 Yaml::Value(Scalar::Null)
             } else {
-                Yaml::Tagged(owned_tag, Box::new(Yaml::Value(Scalar::String(value))))
+                Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
             }
         }
         None if is_plain_empty => Yaml::Value(Scalar::Null),
@@ -587,13 +586,16 @@ fn convert_tagged(
         }
     }
 
-    let value = yaml_to_py(py, node, is_key, handlers)?;
+    let is_core_schema = tag.is_yaml_core_schema();
+    let normalized_suffix = normalized_suffix(tag.suffix.as_str());
 
-    if is_effective_core_null(tag) {
-        return Ok(value);
+    if is_effective_core_null(tag, is_core_schema, normalized_suffix) {
+        return Ok(py.None());
     }
 
-    if tag.is_yaml_core_schema() {
+    let value = yaml_to_py(py, node, is_key, handlers)?;
+
+    if is_core_schema {
         return match tag.suffix.as_str() {
             "str" | "null" | "bool" | "int" | "float" | "seq" | "map" => Ok(value),
             "timestamp" | "set" | "omap" | "pairs" | "binary" => {
@@ -643,22 +645,13 @@ fn normalized_suffix(suffix: &str) -> &str {
     suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix)
 }
 
-fn is_effective_core_null(tag: &Tag) -> bool {
-    if tag.is_yaml_core_schema() && tag.suffix.as_str() == "null" {
-        return true;
-    }
-    if tag.handle.as_str() == "!!" && tag.suffix.as_str() == "null" {
-        return true;
-    }
-    if tag.handle.is_empty() {
-        let suffix = tag.suffix.as_str();
-        if normalized_suffix(suffix) == "null"
-            && (suffix.starts_with('!') || suffix.starts_with("tag:yaml.org,2002:"))
-        {
-            return true;
-        }
-    }
-    false
+fn is_effective_core_null(tag: &Tag, is_core_schema: bool, normalized_suffix: &str) -> bool {
+    (is_core_schema && tag.suffix.as_str() == "null")
+        || (tag.handle.as_str() == "!!" && tag.suffix.as_str() == "null")
+        || (tag.handle.is_empty()
+            && normalized_suffix == "null"
+            && (tag.suffix.as_str().starts_with('!')
+                || tag.suffix.as_str().starts_with("tag:yaml.org,2002:")))
 }
 
 fn render_tag(tag: &Tag) -> String {
@@ -882,11 +875,6 @@ mod tests {
     fn load_scalar(input: &str) -> Yaml<'_> {
         let mut docs = Yaml::load_from_str(input).expect("parser should load tagged scalar");
         docs.pop().expect("expected one document")
-    }
-
-    fn normalized_suffix(suffix: &str) -> &str {
-        let suffix = suffix.trim_start_matches('!');
-        suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix)
     }
 
     #[test]
