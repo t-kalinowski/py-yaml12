@@ -20,18 +20,6 @@ type Result<T> = PyResult<T>;
 
 static TAGGED_CLASS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum CanonicalTagKind {
-    CoreString,
-    CoreNull,
-}
-
-enum TagClass {
-    Canonical(CanonicalTagKind),
-    Core,
-    NonCore,
-}
-
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct HandlerKeyOwned {
     handle: String,
@@ -448,23 +436,19 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let parsed = match tag {
         Some(tag) => {
             let owned_tag = tag.into_owned();
-            match classify_tag(&owned_tag) {
-                TagClass::Canonical(kind) => {
-                    if kind == CanonicalTagKind::CoreNull && is_plain_empty {
-                        Yaml::Value(Scalar::Null)
-                    } else {
-                        let canonical_tag = Cow::Owned(make_canonical_tag(kind));
-                        Yaml::value_from_cow_and_metadata(value, style, Some(&canonical_tag))
-                    }
-                }
-                TagClass::Core => {
-                    let core_tag = Cow::Owned(owned_tag);
-                    Yaml::value_from_cow_and_metadata(value, style, Some(&core_tag))
-                }
-                TagClass::NonCore => Yaml::Tagged(
+            if is_canonical_null_tag(&owned_tag) && is_plain_empty {
+                Yaml::Value(Scalar::Null)
+            } else if let Some(canonical) = canonicalize_tag(&owned_tag) {
+                let canonical_tag = Cow::Owned(canonical);
+                Yaml::value_from_cow_and_metadata(value, style, Some(&canonical_tag))
+            } else if is_core_tag(&owned_tag) {
+                let core_tag = Cow::Owned(owned_tag);
+                Yaml::value_from_cow_and_metadata(value, style, Some(&core_tag))
+            } else {
+                Yaml::Tagged(
                     Cow::Owned(owned_tag),
                     Box::new(Yaml::Value(Scalar::String(value))),
-                ),
+                )
             }
         }
         None if is_plain_empty => Yaml::Value(Scalar::Null),
@@ -580,13 +564,12 @@ fn convert_tagged(
             return registry.apply(py, handler, value);
         }
     }
-    match classify_tag(tag) {
-        TagClass::Canonical(_) | TagClass::Core => yaml_to_py(py, node, is_key, handlers),
-        TagClass::NonCore => {
-            let value = yaml_to_py(py, node, is_key, handlers)?;
-            let rendered = render_tag(tag);
-            make_tagged(py, value, &rendered)
-        }
+    if is_core_tag(tag) {
+        yaml_to_py(py, node, is_key, handlers)
+    } else {
+        let value = yaml_to_py(py, node, is_key, handlers)?;
+        let rendered = render_tag(tag);
+        make_tagged(py, value, &rendered)
     }
 }
 
@@ -597,42 +580,47 @@ fn make_tagged(py: Python<'_>, value: PyObject, tag: &str) -> Result<PyObject> {
     cls.bind(py).call1((value, tag)).map(|obj| obj.into())
 }
 
-fn canonical_tag_kind(tag: &Tag) -> Option<CanonicalTagKind> {
-    match (tag.handle.as_str(), tag.suffix.as_str()) {
-        ("tag:yaml.org,2002:", "str") => Some(CanonicalTagKind::CoreString),
-        ("!", "str") => Some(CanonicalTagKind::CoreString),
-        ("", "str") => Some(CanonicalTagKind::CoreString),
-        ("", "!str") => Some(CanonicalTagKind::CoreString),
-        ("", "!!str") => Some(CanonicalTagKind::CoreString),
-        ("", "tag:yaml.org,2002:str") => Some(CanonicalTagKind::CoreString),
-        ("tag:yaml.org,2002:", "null") => Some(CanonicalTagKind::CoreNull),
-        ("", "null") => Some(CanonicalTagKind::CoreNull),
-        ("", "!null") => Some(CanonicalTagKind::CoreNull),
-        ("", "!!null") => Some(CanonicalTagKind::CoreNull),
-        ("", "tag:yaml.org,2002:null") => Some(CanonicalTagKind::CoreNull),
-        _ => None,
-    }
+fn is_canonical_string_tag(tag: &Tag) -> bool {
+    matches!(
+        (tag.handle.as_str(), tag.suffix.as_str()),
+        ("tag:yaml.org,2002:", "str")
+            | ("!", "str")
+            | ("", "str")
+            | ("", "!str")
+            | ("", "!!str")
+            | ("", "tag:yaml.org,2002:str")
+    )
 }
 
-fn classify_tag(tag: &Tag) -> TagClass {
-    if let Some(kind) = canonical_tag_kind(tag) {
-        TagClass::Canonical(kind)
-    } else if tag.is_yaml_core_schema() {
-        TagClass::Core
+fn is_canonical_null_tag(tag: &Tag) -> bool {
+    matches!(
+        (tag.handle.as_str(), tag.suffix.as_str()),
+        ("tag:yaml.org,2002:", "null")
+            | ("", "null")
+            | ("", "!null")
+            | ("", "!!null")
+            | ("", "tag:yaml.org,2002:null")
+    )
+}
+
+fn canonicalize_tag(tag: &Tag) -> Option<Tag> {
+    if is_canonical_string_tag(tag) {
+        Some(Tag {
+            handle: "tag:yaml.org,2002:".to_string(),
+            suffix: "str".to_string(),
+        })
+    } else if is_canonical_null_tag(tag) {
+        Some(Tag {
+            handle: "tag:yaml.org,2002:".to_string(),
+            suffix: "null".to_string(),
+        })
     } else {
-        TagClass::NonCore
+        None
     }
 }
 
-fn make_canonical_tag(kind: CanonicalTagKind) -> Tag {
-    let suffix = match kind {
-        CanonicalTagKind::CoreString => "str",
-        CanonicalTagKind::CoreNull => "null",
-    };
-    Tag {
-        handle: "tag:yaml.org,2002:".to_string(),
-        suffix: suffix.to_string(),
-    }
+fn is_core_tag(tag: &Tag) -> bool {
+    tag.is_yaml_core_schema() || is_canonical_string_tag(tag) || is_canonical_null_tag(tag)
 }
 
 fn render_tag(tag: &Tag) -> String {
@@ -735,9 +723,10 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
         let tag_str = tag_obj.downcast::<PyString>()?.to_str()?;
         let tag = parse_tag_string(tag_str)?;
         let inner = py_to_yaml(py, &value_obj, is_key)?;
-        return match classify_tag(&tag) {
-            TagClass::Canonical(_) | TagClass::Core => Ok(inner),
-            TagClass::NonCore => Ok(Yaml::Tagged(Cow::Owned(tag), Box::new(inner))),
+        return if is_core_tag(&tag) {
+            Ok(inner)
+        } else {
+            Ok(Yaml::Tagged(Cow::Owned(tag), Box::new(inner)))
         };
     }
 
@@ -877,8 +866,8 @@ mod tests {
         for input in cases {
             let tag = tag_from_scalar(input);
             assert_eq!(
-                canonical_tag_kind(&tag),
-                Some(CanonicalTagKind::CoreString),
+                is_canonical_string_tag(&tag),
+                true,
                 "input `{input}` should map to canonical string tag (handle `{}`, suffix `{}`)",
                 tag.handle,
                 tag.suffix
@@ -899,8 +888,8 @@ mod tests {
         for input in cases {
             let tag = tag_from_scalar(input);
             assert_eq!(
-                canonical_tag_kind(&tag),
-                Some(CanonicalTagKind::CoreNull),
+                is_canonical_null_tag(&tag),
+                true,
                 "input `{input}` should map to canonical null tag (handle `{}`, suffix `{}`)",
                 tag.handle,
                 tag.suffix
