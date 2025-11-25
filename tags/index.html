@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Tags, Anchors, and Advanced YAML - yaml12</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">yaml12</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Overview</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../usage/" class="dropdown-item">YAML in 2 Minutes</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Tags, Anchors, and Advanced YAML</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../reference/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../reference/parse_yaml/" class="dropdown-item">parse_yaml() and read_yaml()</a>
+</li>
+                                    
+<li>
+    <a href="../reference/format_yaml/" class="dropdown-item">format_yaml() and write_yaml()</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../authors/" class="nav-link">Authors and Citation</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../contributing/" class="nav-link">Contributing</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../usage/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../reference/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/t-kalinowski/yaml12/edit/master/docs/tags.md" class="nav-link">Edit on t-kalinowski/yaml12
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#yaml-tags-anchors-and-advanced-features-with-yaml12" class="nav-link">YAML Tags, Anchors, and Advanced Features with yaml12</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#tags-in-yaml-and-how-yaml12-handles-them" class="nav-link">Tags in YAML and how yaml12 handles them</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#mappings-revisited-non-string-keys-and-yaml" class="nav-link">Mappings revisited: non-string keys and Yaml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#document-streams-and-markers" class="nav-link">Document streams and markers</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#writing-yaml-with-tags" class="nav-link">Writing YAML with tags</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#serializing-custom-python-objects" class="nav-link">Serializing custom Python objects</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#anchors" class="nav-link">Anchors</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#very-advanced-tags" class="nav-link">(Very) advanced tags</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="yaml-tags-anchors-and-advanced-features-with-yaml12">YAML Tags, Anchors, and Advanced Features with yaml12<a class="headerlink" href="#yaml-tags-anchors-and-advanced-features-with-yaml12" title="Permanent link">&para;</a></h1>
+<p>This guide picks up where the 2-minute intro leaves off. It shows what
+YAML tags are and how to work with them in <code>yaml12</code> using handlers.
+Along the way it covers complex mapping keys and document streams so you
+can handle real-world YAML.</p>
+<h2 id="tags-in-yaml-and-how-yaml12-handles-them">Tags in YAML and how yaml12 handles them<a class="headerlink" href="#tags-in-yaml-and-how-yaml12-handles-them" title="Permanent link">&para;</a></h2>
+<p>Tags annotate any YAML node with extra meaning. They always start with
+<code>!</code> in YAML syntax and appear before the node's value; they are not part
+of the scalar text itself.</p>
+<p><code>yaml12</code> preserves tags as <code>Yaml</code> objects. The object carries <code>value</code> (a
+regular Python type) and <code>tag</code> (a string). Parsing a tagged scalar:</p>
+<pre><code class="language-python">from yaml12 import Yaml, parse_yaml
+
+color = parse_yaml(&quot;!color red&quot;)
+assert isinstance(color, Yaml) and (color.tag, color.value) == (&quot;!color&quot;, &quot;red&quot;)
+</code></pre>
+<p>Custom tags bypass the usual scalar typing; the scalar is returned as a
+string even if it looks like another type.</p>
+<pre><code class="language-python">assert parse_yaml(&quot;! true&quot;) == Yaml(value=&quot;true&quot;, tag=&quot;!&quot;)
+assert parse_yaml(&quot;true&quot;) is True
+</code></pre>
+<h3 id="using-handlers-to-transform-tagged-nodes-while-parsing">Using handlers to transform tagged nodes while parsing<a class="headerlink" href="#using-handlers-to-transform-tagged-nodes-while-parsing" title="Permanent link">&para;</a></h3>
+<p><code>parse_yaml()</code> and <code>read_yaml()</code> accept <code>handlers</code>: a <code>dict</code> mapping tag
+strings to callables. Handlers run on any matching tagged node. For
+tagged scalars the handler receives the Python scalar; for tagged
+sequences or mappings it receives a plain list/dict.</p>
+<pre><code class="language-python">from dataclasses import dataclass
+from yaml12 import parse_yaml
+
+@dataclass(frozen=True)
+class Point:
+    x: int
+    y: int
+
+def point_handler(value):
+    return Point(x=value[&quot;x&quot;], y=value[&quot;y&quot;])
+
+doc = parse_yaml(
+    &quot;vertex: !point {x: 1,  y: 2}&quot;,
+    handlers={&quot;!point&quot;: point_handler},
+)
+
+assert doc[&quot;vertex&quot;] == Point(1, 2)
+</code></pre>
+<p>Handlers apply to both values and keys, including non-specific <code>!</code> tags
+if you register <code>"!"</code>. If a handler raises an exception, it propagates
+unchanged to make debugging easy.</p>
+<p>Any tag without a matching handler stays as a <code>Yaml</code> object. Handlers
+without matching tags are simply unused.</p>
+<h3 id="post-process-tags-yourself">Post-process tags yourself<a class="headerlink" href="#post-process-tags-yourself" title="Permanent link">&para;</a></h3>
+<p>You can also parse without handlers and walk the result yourself. For
+example, processing <code>!expr</code> scalars manually:</p>
+<pre><code class="language-python">from yaml12 import Yaml, parse_yaml
+
+def eval_yaml_expr_nodes(obj):
+    if isinstance(obj, Yaml):
+        if obj.tag == &quot;!expr&quot;:
+            return eval(str(obj.value))
+        return Yaml(eval_yaml_expr_nodes(obj.value), obj.tag)
+    if isinstance(obj, list):
+        return [eval_yaml_expr_nodes(item) for item in obj]
+    if isinstance(obj, dict):
+        return {eval_yaml_expr_nodes(k): eval_yaml_expr_nodes(v) for k, v in obj.items()}
+    return obj
+
+raw = parse_yaml(&quot;!expr 1 + 1&quot;)
+assert isinstance(raw, Yaml) and eval_yaml_expr_nodes(raw) == 2
+</code></pre>
+<h2 id="mappings-revisited-non-string-keys-and-yaml">Mappings revisited: non-string keys and <code>Yaml</code><a class="headerlink" href="#mappings-revisited-non-string-keys-and-yaml" title="Permanent link">&para;</a></h2>
+<p>YAML mapping keys do not have to be plain strings; any node can be a
+key. For example, this is valid even though the key is a boolean:</p>
+<pre><code class="language-yaml">true: true
+</code></pre>
+<p>Parsed with <code>yaml12</code>, unhashable or tagged keys become <code>Yaml</code> so they
+can live in a Python <code>dict</code> while preserving equality and hashing by
+structure:</p>
+<pre><code class="language-python">parsed = parse_yaml(&quot;true: true&quot;)
+key = next(iter(parsed))
+assert key is True and parsed[key] is True and not isinstance(key, Yaml)
+</code></pre>
+<p>Complex keys use the explicit mapping-key indicator <code>?</code>:</p>
+<pre><code class="language-yaml">? [a, b]
+: tuple
+? {x: 1, y: 2}
+: map-key
+</code></pre>
+<p>Becomes:</p>
+<pre><code class="language-python">parsed = parse_yaml(...above yaml...)
+keys = list(parsed)
+assert all(isinstance(k, Yaml) for k in keys) and keys[0].value == [&quot;a&quot;, &quot;b&quot;] and keys[1].value == {&quot;x&quot;: 1, &quot;y&quot;: 2}
+</code></pre>
+<h3 id="tagged-mapping-keys">Tagged mapping keys<a class="headerlink" href="#tagged-mapping-keys" title="Permanent link">&para;</a></h3>
+<p>Handlers run on keys too, so a handler can turn tagged keys into friendly
+Python keys before they are wrapped.</p>
+<pre><code class="language-python">handlers = {&quot;!upper&quot;: str.upper}
+result = parse_yaml(&quot;!upper key: value&quot;, handlers=handlers)
+assert result == {&quot;KEY&quot;: &quot;value&quot;}
+</code></pre>
+<p>If you anticipate tagged mapping keys that you want to process yourself,
+walk the <code>Yaml</code> keys alongside the values and unwrap them as needed.</p>
+<h2 id="document-streams-and-markers">Document streams and markers<a class="headerlink" href="#document-streams-and-markers" title="Permanent link">&para;</a></h2>
+<p>Most YAML files contain a single document. YAML also supports document
+streams: multiple documents separated by <code>---</code> and optionally closed by
+<code>...</code>.</p>
+<h3 id="reading-multiple-documents">Reading multiple documents<a class="headerlink" href="#reading-multiple-documents" title="Permanent link">&para;</a></h3>
+<p><code>parse_yaml()</code> and <code>read_yaml()</code> default to <code>multi=False</code>, returning only
+the first document. When <code>multi=True</code>, all documents are returned as a
+list.</p>
+<pre><code class="language-python">doc_stream = &quot;&quot;&quot;
+---
+doc 1
+---
+doc 2
+&quot;&quot;&quot;
+
+parsed_first = parse_yaml(doc_stream)
+parsed_all = parse_yaml(doc_stream, multi=True)
+assert (parsed_first, parsed_all) == (&quot;doc 1&quot;, [&quot;doc 1&quot;, &quot;doc 2&quot;])
+</code></pre>
+<h3 id="writing-multiple-documents">Writing multiple documents<a class="headerlink" href="#writing-multiple-documents" title="Permanent link">&para;</a></h3>
+<p><code>write_yaml()</code> and <code>format_yaml()</code> default to a single document. With
+<code>multi=True</code>, the value must be a sequence of documents and the output
+uses <code>---</code> between documents and <code>...</code> after the final one. For single
+documents, <code>write_yaml()</code> always wraps the body with <code>---</code> and a final
+<code>...</code>, while <code>format_yaml()</code> returns just the body.</p>
+<pre><code class="language-python">from yaml12 import format_yaml, write_yaml
+
+docs = [&quot;first&quot;, &quot;second&quot;]
+text = format_yaml(docs, multi=True)
+assert text.startswith(&quot;---&quot;) and text.rstrip().endswith(&quot;...&quot;)
+write_yaml(docs, path=&quot;out.yml&quot;, multi=True)
+</code></pre>
+<p>When <code>multi=False</code>, parsing stops after the first document, even if later
+content is not valid YAML. That makes it easy to extract front matter
+from files that mix YAML with other text (like Markdown).</p>
+<pre><code class="language-python">rmd_lines = [
+    &quot;---&quot;,
+    &quot;title: Front matter only&quot;,
+    &quot;params:&quot;,
+    &quot;  answer: 42&quot;,
+    &quot;---&quot;,
+    &quot;# Body that is not YAML&quot;,
+]
+frontmatter = parse_yaml(rmd_lines)
+assert frontmatter == {&quot;title&quot;: &quot;Front matter only&quot;, &quot;params&quot;: {&quot;answer&quot;: 42}}
+</code></pre>
+<h2 id="writing-yaml-with-tags">Writing YAML with tags<a class="headerlink" href="#writing-yaml-with-tags" title="Permanent link">&para;</a></h2>
+<p>Attach <code>Yaml</code> to values before calling <code>format_yaml()</code> or <code>write_yaml()</code>
+to emit a tag.</p>
+<pre><code class="language-python">from yaml12 import Yaml, write_yaml
+
+tagged = Yaml(&quot;1 + x&quot;, &quot;!expr&quot;)
+write_yaml(tagged)
+# stdout:
+# ---
+# !expr 1 + x
+# ...
+</code></pre>
+<p>Tagged collections or mapping keys work the same way:</p>
+<pre><code class="language-python">from yaml12 import Yaml, format_yaml, parse_yaml
+
+mapping = {
+    &quot;tagged_value&quot;: Yaml([&quot;a&quot;, &quot;b&quot;], &quot;!pair&quot;),
+    Yaml(&quot;tagged-key&quot;, &quot;!k&quot;): &quot;v&quot;,
+}
+encoded = format_yaml(mapping)
+reparsed = parse_yaml(encoded)
+
+value = reparsed[&quot;tagged_value&quot;]
+assert isinstance(value, Yaml) and value.tag == &quot;!pair&quot; and value.value == [&quot;a&quot;, &quot;b&quot;]
+
+key = next(k for k in reparsed if isinstance(k, Yaml))
+assert key.tag == &quot;!k&quot; and key.value == &quot;tagged-key&quot; and reparsed[key] == &quot;v&quot;
+</code></pre>
+<h2 id="serializing-custom-python-objects">Serializing custom Python objects<a class="headerlink" href="#serializing-custom-python-objects" title="Permanent link">&para;</a></h2>
+<p>You can opt into rich types by tagging your own objects on emit and
+supplying a handler on parse. Here is a round-trip for a dataclass:</p>
+<pre><code class="language-python">from dataclasses import dataclass, asdict
+from yaml12 import Yaml, format_yaml, parse_yaml
+
+@dataclass
+class Server:
+    name: str
+    host: str
+    port: int
+
+def encode_server(server: Server) -&gt; Yaml:
+    return Yaml(asdict(server), &quot;!server&quot;)
+
+def decode_server(value):
+    return Server(**value)
+
+servers = [Server(&quot;api&quot;, &quot;api.example.com&quot;, 8000), Server(&quot;db&quot;, &quot;db.local&quot;, 5432)]
+yaml_text = format_yaml([encode_server(s) for s in servers])
+
+round_tripped = parse_yaml(yaml_text, handlers={&quot;!server&quot;: decode_server})
+assert round_tripped == servers
+</code></pre>
+<p>By keeping the on-disk representation a plain mapping plus tag, you get a
+stable YAML format while still round-tripping your Python types losslessly.</p>
+<h2 id="anchors">Anchors<a class="headerlink" href="#anchors" title="Permanent link">&para;</a></h2>
+<p>Anchors (<code>&amp;id</code>) name a node; aliases (<code>*id</code>) copy it. <code>yaml12</code> resolves
+aliases before returning Python objects.</p>
+<pre><code class="language-python">from yaml12 import parse_yaml
+
+parsed = parse_yaml(&quot;&quot;&quot;
+recycle-me: &amp;anchor-name
+  a: b
+  c: d
+
+recycled:
+  - *anchor-name
+  - *anchor-name
+&quot;&quot;&quot;)
+
+first, second = parsed[&quot;recycled&quot;]
+assert first[&quot;a&quot;] == &quot;b&quot; and second[&quot;c&quot;] == &quot;d&quot;
+</code></pre>
+<h2 id="very-advanced-tags">(Very) advanced tags<a class="headerlink" href="#very-advanced-tags" title="Permanent link">&para;</a></h2>
+<h3 id="tag-directives-tag">Tag directives (<code>%TAG</code>)<a class="headerlink" href="#tag-directives-tag" title="Permanent link">&para;</a></h3>
+<p>YAML lets you declare tag handles at the top of a document. The syntax
+is <code>%TAG !&lt;name&gt;! &lt;handle&gt;</code> and it applies to the rest of the document.</p>
+<pre><code class="language-python">text = &quot;&quot;&quot;
+%TAG !e! tag:example.com,2024:widgets/
+---
+item: !e!gizmo foo
+&quot;&quot;&quot;
+parsed = parse_yaml(text)
+assert parsed[&quot;item&quot;].tag == &quot;tag:example.com,2024:widgets/gizmo&quot;
+</code></pre>
+<p>You can also declare a global tag prefix, which expands a bare <code>!</code>:</p>
+<pre><code class="language-python">text = &quot;&quot;&quot;
+%TAG ! tag:example.com,2024:widgets/
+---
+item: !gizmo foo
+&quot;&quot;&quot;
+assert parse_yaml(text)[&quot;item&quot;].tag == &quot;tag:example.com,2024:widgets/gizmo&quot;
+</code></pre>
+<h3 id="tag-uris">Tag URIs<a class="headerlink" href="#tag-uris" title="Permanent link">&para;</a></h3>
+<p>To bypass handle resolution, use <code>!&lt;...&gt;</code> with a valid URI-like string:</p>
+<pre><code class="language-python">parsed = parse_yaml(&quot;&quot;&quot;
+%TAG ! tag:example.com,2024:widgets/
+---
+item: !&lt;gizmo&gt; foo
+&quot;&quot;&quot;)
+assert parsed[&quot;item&quot;].tag == &quot;gizmo&quot;
+</code></pre>
+<h3 id="core-schema-tags">Core schema tags<a class="headerlink" href="#core-schema-tags" title="Permanent link">&para;</a></h3>
+<p>Tags beginning with <code>!!</code> resolve against the YAML core schema handle
+(<code>tag:yaml.org,2002:</code>). Scalar core tags (<code>!!str</code>, <code>!!int</code>, <code>!!float</code>,
+<code>!!bool</code>, <code>!!null</code>, <code>!!seq</code>, <code>!!map</code>) add no information when emitting
+and are normalized to plain Python values. Informative core tags
+(<code>!!timestamp</code>, <code>!!binary</code>, <code>!!set</code>, <code>!!omap</code>, <code>!!pairs</code>) stay tagged so
+you can decide how to handle them.</p>
+<pre><code class="language-python">from yaml12 import Yaml, parse_yaml
+
+yaml_text = &quot;&quot;&quot;
+- !!timestamp 2025-01-01
+- !!timestamp 2025-01-01 21:59:43.10-05:00
+- !!binary UiBpcyBBd2Vzb21l
+&quot;&quot;&quot;
+parsed = parse_yaml(yaml_text)
+assert all(isinstance(item, Yaml) for item in parsed) and (
+    parsed[0].tag,
+    parsed[2].tag,
+) == (&quot;tag:yaml.org,2002:timestamp&quot;, &quot;tag:yaml.org,2002:binary&quot;)
+</code></pre>
+<p>Handlers can convert these to richer Python types:</p>
+<pre><code class="language-python">import base64
+from datetime import datetime, timezone
+from yaml12 import parse_yaml
+
+def ts_handler(value):
+    return datetime.fromisoformat(str(value).replace(&quot;Z&quot;, &quot;+00:00&quot;)).replace(tzinfo=timezone.utc)
+
+def binary_handler(value):
+    return base64.b64decode(str(value))
+
+converted = parse_yaml(
+    yaml_text,
+    handlers={
+        &quot;tag:yaml.org,2002:timestamp&quot;: ts_handler,
+        &quot;tag:yaml.org,2002:binary&quot;: binary_handler,
+    },
+)
+assert isinstance(converted[0], datetime) and isinstance(converted[2], (bytes, bytearray))
+</code></pre></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

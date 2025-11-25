@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="Rust-backed YAML 1.2 parsing and emitting for Python.">
+        
+        
+        <link rel="shortcut icon" href="img/favicon.ico">
+        <title>yaml12</title>
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <link href="css/fontawesome.min.css" rel="stylesheet">
+        <link href="css/brands.min.css" rel="stylesheet">
+        <link href="css/solid.min.css" rel="stylesheet">
+        <link href="css/v4-font-face.min.css" rel="stylesheet">
+        <link href="css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body class="homepage">
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href=".">yaml12</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="." class="nav-link active" aria-current="page">Overview</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="usage/" class="dropdown-item">YAML in 2 Minutes</a>
+</li>
+                                    
+<li>
+    <a href="tags/" class="dropdown-item">Tags, Anchors, and Advanced YAML</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="reference/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="reference/parse_yaml/" class="dropdown-item">parse_yaml() and read_yaml()</a>
+</li>
+                                    
+<li>
+    <a href="reference/format_yaml/" class="dropdown-item">format_yaml() and write_yaml()</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="authors/" class="nav-link">Authors and Citation</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="contributing/" class="nav-link">Contributing</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" class="nav-link disabled">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="usage/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/t-kalinowski/yaml12/edit/master/docs/index.md" class="nav-link">Edit on t-kalinowski/yaml12
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#yaml12" class="nav-link">yaml12</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#installation" class="nav-link">Installation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#quick-start" class="nav-link">Quick start</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#documentation" class="nav-link">Documentation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="yaml12">yaml12<a class="headerlink" href="#yaml12" title="Permanent link">&para;</a></h1>
+<p>A YAML 1.2 parser/formatter for Python, implemented in Rust for speed
+and correctness. Built on the excellent
+<a href="https://github.com/saphyr-rs/saphyr"><code>saphyr</code></a> crate.</p>
+<p>For almost every use case, <code>yaml12</code> lets you work with plain builtin Python types end to end: <code>dict</code>, <code>list</code>, <code>int</code>, <code>float</code>, <code>str</code>, and <code>None</code>.</p>
+<ul>
+<li>Parse YAML text or files with <code>parse_yaml()</code> and <code>read_yaml()</code>.</li>
+<li>Serialize Python values with <code>format_yaml()</code> or <code>write_yaml()</code>.</li>
+<li>100% compliance with the <a href="https://github.com/yaml/yaml-test-suite">yaml-test-suite</a>.</li>
+<li>Advanced YAML features (document streams, tags, complex mapping keys) are supported and
+  round-trip cleanly when needed; see the advanced guide if needed.</li>
+</ul>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<p>The project targets Python 3.10+ and builds via <code>maturin</code> (Rust
+toolchain required). From the repository root:</p>
+<pre><code class="language-bash">python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e . --no-build-isolation
+</code></pre>
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<pre><code class="language-python">from yaml12 import parse_yaml, format_yaml
+
+yaml_text = &quot;&quot;&quot;
+title: A modern YAML parser and emitter written in Rust
+properties: [fast, correct, safe, simple]
+features:
+  tags: preserve
+  streams: multi
+&quot;&quot;&quot;
+
+doc = parse_yaml(yaml_text)
+
+assert doc == {
+    &quot;title&quot;: &quot;A modern YAML parser and emitter written in Rust&quot;,
+    &quot;properties&quot;: [&quot;fast&quot;, &quot;correct&quot;, &quot;safe&quot;, &quot;simple&quot;],
+    &quot;features&quot;: {&quot;tags&quot;: &quot;preserve&quot;, &quot;streams&quot;: &quot;multi&quot;},
+}
+
+text = format_yaml(doc)
+print(text)
+# title: A modern YAML parser and emitter written in Rust
+# properties:
+#   - fast
+#   - correct
+#   - safe
+#   - simple
+# features:
+#   tags: preserve
+#   streams: multi
+</code></pre>
+<h3 id="reading-and-writing-files">Reading and writing files<a class="headerlink" href="#reading-and-writing-files" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from yaml12 import read_yaml, write_yaml
+
+value_out = {&quot;alpha&quot;: 1, &quot;nested&quot;: [True, None]}
+
+write_yaml(value_out, &quot;my.yaml&quot;)
+value_in = read_yaml(&quot;my.yaml&quot;)
+
+assert value_in == value_out
+
+# Multi-document streams
+docs_out = [{&quot;foo&quot;: 1}, {&quot;bar&quot;: [2, None]}]
+
+write_yaml(docs_out, &quot;my-multi.yaml&quot;, multi=True)
+docs_in = read_yaml(&quot;my-multi.yaml&quot;, multi=True)
+
+assert docs_in == docs_out
+</code></pre>
+<h3 id="tag-handlers">Tag handlers<a class="headerlink" href="#tag-handlers" title="Permanent link">&para;</a></h3>
+<p>Handlers let you opt into custom behaviour for tagged nodes while
+keeping the default parser strict and safe.</p>
+<pre><code class="language-python">from yaml12 import parse_yaml
+
+yaml_text = &quot;&quot;&quot;
+- !upper [rust, python]
+- !expr 6 * 7
+&quot;&quot;&quot;
+
+handlers = {
+    &quot;!expr&quot;: lambda value: eval(value),
+    &quot;!upper&quot;: lambda value: [x.upper() for x in value],
+}
+
+doc = parse_yaml(yaml_text, handlers=handlers)
+assert doc == [[&quot;RUST&quot;, &quot;PYTHON&quot;], 42]
+</code></pre>
+<h3 id="formatting-and-round-tripping">Formatting and round-tripping<a class="headerlink" href="#formatting-and-round-tripping" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from yaml12 import format_yaml, parse_yaml, Yaml
+
+obj = {
+    &quot;seq&quot;: [1, 2],
+    &quot;map&quot;: {&quot;key&quot;: &quot;value&quot;},
+    &quot;tagged&quot;: Yaml(value=&quot;1 + 1&quot;, tag=&quot;!expr&quot;),
+}
+
+yaml_text = format_yaml(obj)
+print(yaml_text)
+# seq:
+#   - 1
+#   - 2
+# map:
+#   key: value
+# tagged: !expr 1 + 1
+
+parsed = parse_yaml(yaml_text)
+assert parsed == {
+    &quot;seq&quot;: [1, 2],
+    &quot;map&quot;: {&quot;key&quot;: &quot;value&quot;},
+    &quot;tagged&quot;: Yaml(&quot;1 + 1&quot;, &quot;!expr&quot;),
+}
+</code></pre>
+<h3 id="tagged-nodes-and-mapping-keys-advanced">Tagged nodes and mapping keys (advanced)<a class="headerlink" href="#tagged-nodes-and-mapping-keys-advanced" title="Permanent link">&para;</a></h3>
+<p>Tags, custom handlers, and non-string mapping keys work without extra
+setup when you need them. Nodes that cannot be represented as plain
+Python types are wrapped in <code>Yaml</code> (a frozen dataclass). You will only
+see <code>Yaml</code> when:</p>
+<ul>
+<li>A tagged node has no matching handler; inspect <code>.value</code> and <code>.tag</code>.</li>
+<li>A mapping key is a collection or otherwise unhashable; wrapping makes
+  it hashable while preserving any tag.</li>
+</ul>
+<p>See the advanced guide for details.</p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="usage/">YAML in 2 Minutes</a> for a quick primer.</li>
+<li><a href="tags/">Tags, Anchors, and Advanced YAML</a> for handlers, mapping keys,
+  document streams, and advanced tags.</li>
+<li><a href="reference/">Reference</a> for detailed signatures and examples.</li>
+<li><a href="contributing/">Contributing</a> for building or serving the docs locally.</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = ".",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="js/base.js"></script>
+        <script src="search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2025-11-25 22:30:47.497332+00:00
+-->

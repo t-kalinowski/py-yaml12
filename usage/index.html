@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>YAML in 2 Minutes - yaml12</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">yaml12</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Overview</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">YAML in 2 Minutes</a>
+</li>
+                                    
+<li>
+    <a href="../tags/" class="dropdown-item">Tags, Anchors, and Advanced YAML</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../reference/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../reference/parse_yaml/" class="dropdown-item">parse_yaml() and read_yaml()</a>
+</li>
+                                    
+<li>
+    <a href="../reference/format_yaml/" class="dropdown-item">format_yaml() and write_yaml()</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../authors/" class="nav-link">Authors and Citation</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../contributing/" class="nav-link">Contributing</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href=".." class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../tags/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/t-kalinowski/yaml12/edit/master/docs/usage.md" class="nav-link">Edit on t-kalinowski/yaml12
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#yaml-in-2-minutes-a-gentle-introduction-for-python-users" class="nav-link">YAML in 2 Minutes: A Gentle Introduction for Python Users</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#a-first-example" class="nav-link">A first example</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#collections" class="nav-link">Collections</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#scalars" class="nav-link">Scalars</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#end-to-end-example" class="nav-link">End-to-end example</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#quick-notes" class="nav-link">Quick notes</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="yaml-in-2-minutes-a-gentle-introduction-for-python-users">YAML in 2 Minutes: A Gentle Introduction for Python Users<a class="headerlink" href="#yaml-in-2-minutes-a-gentle-introduction-for-python-users" title="Permanent link">&para;</a></h1>
+<pre><code class="language-python">from yaml12 import parse_yaml
+</code></pre>
+<p>YAML is a human-friendly data serialization format. Think of it as
+"JSON with comments and nicer multiline strings." <code>yaml12</code> follows the
+modern YAML 1.2 spec (no surprising 1.1-era conversions).</p>
+<p>YAML has three building blocks: <strong>scalars</strong> (single values),
+<strong>sequences</strong> (ordered collections), and <strong>mappings</strong> (key/value pairs).
+JSON is a subset of YAML 1.2, so all valid JSON is also valid YAML and
+parses the same way.</p>
+<h2 id="a-first-example">A first example<a class="headerlink" href="#a-first-example" title="Permanent link">&para;</a></h2>
+<pre><code class="language-yaml">title: A Modern YAML parser written in Rust
+properties: [correct, safe, fast, simple]
+score: 9.5
+categories:
+  - yaml
+  - python
+  - example
+settings:
+  note: &gt;
+    This is a folded block
+    that turns line breaks
+    into spaces.
+  note_literal: |
+    This is a literal block
+    that keeps
+    line breaks.
+</code></pre>
+<pre><code class="language-python">first_example_text = &quot;&quot;&quot;
+title: A Modern YAML parser written in Rust
+properties: [correct, safe, fast, simple]
+score: 9.5
+categories:
+  - yaml
+  - python
+  - example
+settings:
+  note: &gt;
+    This is a folded block
+    that turns line breaks
+    into spaces.
+  note_literal: |
+    This is a literal block
+    that keeps
+    line breaks.
+&quot;&quot;&quot;
+
+doc = parse_yaml(first_example_text)
+
+assert doc == {
+    &quot;title&quot;: &quot;A Modern YAML parser written in Rust&quot;,
+    &quot;properties&quot;: [&quot;correct&quot;, &quot;safe&quot;, &quot;fast&quot;, &quot;simple&quot;],
+    &quot;score&quot;: 9.5,
+    &quot;categories&quot;: [&quot;yaml&quot;, &quot;python&quot;, &quot;example&quot;],
+    &quot;settings&quot;: {
+        &quot;note&quot;: &quot;This is a folded block that turns line breaks into spaces.\n&quot;,
+        &quot;note_literal&quot;: &quot;This is a literal block\nthat keeps\nline breaks.\n&quot;,
+    },
+}
+</code></pre>
+<h2 id="collections">Collections<a class="headerlink" href="#collections" title="Permanent link">&para;</a></h2>
+<p>There are two collection types: <strong>sequences</strong> and <strong>mappings</strong>.</p>
+<h3 id="sequences-yamls-ordered-collections">Sequences: YAML's ordered collections<a class="headerlink" href="#sequences-yamls-ordered-collections" title="Permanent link">&para;</a></h3>
+<p>Each item begins with <code>-</code> at the parent indent.</p>
+<pre><code class="language-yaml">- cat
+- dog
+</code></pre>
+<p>parses to <code>["cat", "dog"]</code>.</p>
+<p>JSON-style arrays work too:</p>
+<pre><code class="language-yaml">[cat, dog]
+</code></pre>
+<p>Anything belonging to one of the sequence entries is indented at least
+one space past the dash:</p>
+<pre><code class="language-yaml">- name: cat
+  toys: [string, box]
+- name: dog
+  toys: [ball, bone]
+</code></pre>
+<p>parses to:</p>
+<pre><code class="language-python">[
+    {&quot;name&quot;: &quot;cat&quot;, &quot;toys&quot;: [&quot;string&quot;, &quot;box&quot;]},
+    {&quot;name&quot;: &quot;dog&quot;, &quot;toys&quot;: [&quot;ball&quot;, &quot;bone&quot;]},
+]
+</code></pre>
+<h3 id="mappings-keyvalue-pairs">Mappings: key/value pairs<a class="headerlink" href="#mappings-keyvalue-pairs" title="Permanent link">&para;</a></h3>
+<p>Mappings are sets of <code>key: value</code> pairs at the same indent:</p>
+<pre><code class="language-yaml">foo: 1
+bar: true
+</code></pre>
+<p>parses to <code>{"foo": 1, "bar": True}</code>.</p>
+<p>A key at its indent owns anything indented more:</p>
+<pre><code class="language-yaml">settings:
+  debug: true
+  max_items: 3
+</code></pre>
+<p>parses to <code>{"settings": {"debug": True, "max_items": 3}}</code>.</p>
+<p>JSON-style objects work too:</p>
+<pre><code class="language-yaml">{a: true}
+</code></pre>
+<p>-&gt; <code>{"a": True}</code></p>
+<h2 id="scalars">Scalars<a class="headerlink" href="#scalars" title="Permanent link">&para;</a></h2>
+<p>Everything that is not a collection is a scalar. Scalars can be block,
+quoted, or plain.</p>
+<h3 id="block-scalars">Block scalars<a class="headerlink" href="#block-scalars" title="Permanent link">&para;</a></h3>
+<p><code>|</code> starts a <strong>literal</strong> block that keeps newlines; <code>&gt;</code> starts a
+<strong>folded</strong> block that joins lines with spaces (except blank/indented
+lines keep breaks). Block scalars always become strings.</p>
+<pre><code class="language-yaml">|
+  hello
+  world
+</code></pre>
+<p>-&gt; <code>"hello\nworld\n"</code></p>
+<pre><code class="language-yaml">&gt;
+  hello
+  world
+</code></pre>
+<p>-&gt; <code>"hello world\n"</code></p>
+<h3 id="quoted-scalars">Quoted scalars<a class="headerlink" href="#quoted-scalars" title="Permanent link">&para;</a></h3>
+<p>Quoted scalars always become strings. Double quotes interpret escapes
+(<code>\n</code>, <code>\t</code>, <code>\\</code>, <code>\"</code>). Single quotes are literal and do not interpret
+escapes, except for <code>''</code> which is parsed as a single <code>'</code>.</p>
+<pre><code class="language-yaml">[&quot;line\nbreak&quot;, &quot;quote: \&quot;here\&quot;&quot;]
+</code></pre>
+<p>-&gt; <code>["line\nbreak", 'quote: "here"']</code></p>
+<pre><code class="language-yaml">['line\nbreak', 'quote: ''here''']
+</code></pre>
+<p>-&gt; <code>["line\\nbreak", "quote: 'here'"]</code></p>
+<h3 id="plain-unquoted-scalars">Plain (unquoted) scalars<a class="headerlink" href="#plain-unquoted-scalars" title="Permanent link">&para;</a></h3>
+<p>Plain nodes can resolve to one of five types: string, int, float, bool,
+or null.</p>
+<ul>
+<li><code>true</code> / <code>false</code> -&gt; <code>True</code> / <code>False</code></li>
+<li><code>null</code>, <code>~</code>, or empty -&gt; <code>None</code></li>
+<li>numbers: signed, decimal, scientific, hex (<code>0x</code>), octal (<code>0o</code>),
+  <code>.inf</code>, <code>.nan</code> -&gt; <code>int</code> or <code>float</code></li>
+<li>everything else stays a string (<code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code> and other
+  aliases remain strings in YAML 1.2)</li>
+</ul>
+<pre><code class="language-yaml">[true, 123, 4.5e2, 0x10, .inf, yes]
+</code></pre>
+<p>-&gt; <code>[True, 123, 450.0, 16, float("inf"), "yes"]</code></p>
+<h2 id="end-to-end-example">End-to-end example<a class="headerlink" href="#end-to-end-example" title="Permanent link">&para;</a></h2>
+<pre><code class="language-yaml">doc:
+  pets:
+    - cat
+    - dog
+  numbers: [1, 2.5, 0x10, .inf, null]
+  integers: [1, 2, 3, 0x10, null]
+  flags: {enabled: true, label: on}
+  literal: |
+    hello
+    world
+  folded: &gt;
+    hello
+    world
+  quoted:
+    - &quot;line\nbreak&quot;
+    - 'quote: ''here'''
+  plain: [yes, no]
+  mixed: [won't simplify, 123, true]
+</code></pre>
+<p>Python result:</p>
+<pre><code class="language-python">{
+    &quot;doc&quot;: {
+        &quot;pets&quot;: [&quot;cat&quot;, &quot;dog&quot;],
+        &quot;numbers&quot;: [1, 2.5, 16, float(&quot;inf&quot;), None],
+        &quot;integers&quot;: [1, 2, 3, 16, None],
+        &quot;flags&quot;: {&quot;enabled&quot;: True, &quot;label&quot;: &quot;on&quot;},
+        &quot;literal&quot;: &quot;hello\nworld\n&quot;,
+        &quot;folded&quot;: &quot;hello world\n&quot;,
+        &quot;quoted&quot;: [&quot;line\nbreak&quot;, &quot;quote: 'here'&quot;],
+        &quot;plain&quot;: [&quot;yes&quot;, &quot;no&quot;],
+        &quot;mixed&quot;: [&quot;won't simplify&quot;, 123, True],
+    }
+}
+</code></pre>
+<h2 id="quick-notes">Quick notes<a class="headerlink" href="#quick-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Indentation defines structure for collections. Sibling elements share
+  an indent; children are indented more. YAML 1.2 forbids tabs; use
+  spaces.</li>
+<li>All JSON is valid YAML.</li>
+<li>Sequences stay Python lists; there is no vector "simplification."</li>
+<li>Block scalars (<code>|</code>, <code>&gt;</code>) always produce strings.</li>
+<li>Booleans are only <code>true</code>/<code>false</code>; <code>null</code> maps to <code>None</code>.</li>
+<li>Numbers can be signed, scientific, hex (<code>0x</code>), octal (<code>0o</code>), <code>.inf</code>,
+  and <code>.nan</code>.</li>
+</ul>
+<p>These essentials cover most YAML you'll see. For tags, anchors, and
+non-string mapping keys, see the advanced guide.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
