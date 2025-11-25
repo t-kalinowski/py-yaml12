@@ -4,6 +4,8 @@ import base64
 import math
 import textwrap
 from typing import Callable
+from pathlib import Path
+import tempfile
 
 import pytest
 
@@ -236,7 +238,9 @@ def test_parse_yaml_ignores_later_document_errors_when_not_multi():
 
 
 def test_parse_yaml_errors_on_none_inputs():
-    with pytest.raises(TypeError, match="`text` must be a string or a sequence of strings"):
+    with pytest.raises(
+        TypeError, match="`text` must be a string, a sequence of strings, or an object with .read"
+    ):
         yaml12.parse_yaml(None)
 
     with pytest.raises(TypeError, match="must contain only strings"):
@@ -249,6 +253,127 @@ def test_parse_yaml_errors_on_none_inputs():
         yaml12.parse_yaml(["foo: 1", None])
 
     assert yaml12.parse_yaml([]) is None
+
+
+def test_parse_yaml_accepts_text_connection():
+    path = Path(tempfile.mkstemp(prefix="yaml12-text-")[1])
+    path.write_text("foo: 1\nbar: true\n", encoding="utf-8")
+    with path.open("r", encoding="utf-8") as fh:
+        assert yaml12.parse_yaml(fh) == {"foo": 1, "bar": True}
+    path.unlink()
+
+
+def test_parse_yaml_accepts_bytes_connection_and_validates_utf8():
+    path = Path(tempfile.mkstemp(prefix="yaml12-bytes-")[1])
+    path.write_bytes(b"foo: 1\n")
+    with path.open("rb") as fh:
+        assert yaml12.parse_yaml(fh) == {"foo": 1}
+
+    bad_path = Path(tempfile.mkstemp(prefix="yaml12-badbytes-")[1])
+    bad_path.write_bytes(b"a\xff")
+    with bad_path.open("rb") as fh_bad, pytest.raises(ValueError, match="UTF-8"):
+        yaml12.parse_yaml(fh_bad)
+    path.unlink()
+    bad_path.unlink()
+
+
+def test_parse_yaml_connection_empty_respects_multi_flag():
+    path = Path(tempfile.mkstemp(prefix="yaml12-empty-")[1])
+    path.write_text("", encoding="utf-8")
+    with path.open("r", encoding="utf-8") as fh:
+        assert yaml12.parse_yaml(fh) is None
+    with path.open("r", encoding="utf-8") as fh_multi:
+        assert yaml12.parse_yaml(fh_multi, multi=True) == []
+    path.unlink()
+
+
+def test_parse_yaml_streaming_large_chunk_size_one():
+    items = list(range(5000))
+    yaml_text = "".join(f"- {i}\n" for i in items)
+    path = Path(tempfile.mkstemp(prefix="yaml12-chunk1-")[1])
+    path.write_text(yaml_text, encoding="utf-8")
+    reader = _ChunkReader(path, chunk_size=1)
+    try:
+        parsed = yaml12.parse_yaml(reader)
+        assert parsed == items
+    finally:
+        reader.close()
+        path.unlink()
+
+
+def test_parse_yaml_streaming_multi_documents():
+    yaml_text = "---\nfoo: 1\n---\nbar: [1, 2, 3]\n"
+    path = Path(tempfile.mkstemp(prefix="yaml12-chunk-multi-")[1])
+    path.write_text(yaml_text, encoding="utf-8")
+    reader = _ChunkReader(path, chunk_size=2)
+    try:
+        parsed = yaml12.parse_yaml(reader, multi=True)
+        assert parsed == [{"foo": 1}, {"bar": [1, 2, 3]}]
+    finally:
+        reader.close()
+        path.unlink()
+
+
+def test_parse_yaml_streaming_read_error_propagates():
+    with pytest.raises(RuntimeError, match="boom stream"):
+        yaml12.parse_yaml(_ErroringReader())
+
+
+def test_parse_yaml_streaming_bad_type_error():
+    with pytest.raises(TypeError, match="str or bytes"):
+        yaml12.parse_yaml(_BadTypeReader())
+
+
+def test_parse_yaml_streaming_midway_error():
+    with pytest.raises(RuntimeError, match="boom later"):
+        yaml12.parse_yaml(_ErroringReaderAfterFirst(), multi=True)
+
+
+class _ChunkReader:
+    def __init__(self, path: Path, chunk_size: int = 7):
+        self.f = path.open("r", encoding="utf-8")
+        self.chunk_size = chunk_size
+
+    def read(self, size: int = -1) -> str:
+        chunk_size = self.chunk_size if size < 0 else size
+        return self.f.read(chunk_size)
+
+    def close(self):
+        self.f.close()
+
+
+class _ChunkBytesReader:
+    def __init__(self, path: Path, chunk_size: int = 5):
+        self.f = path.open("rb")
+        self.chunk_size = chunk_size
+
+    def read(self, size: int = -1) -> bytes:
+        chunk_size = self.chunk_size if size < 0 else size
+        return self.f.read(chunk_size)
+
+    def close(self):
+        self.f.close()
+
+
+class _ErroringReader:
+    def read(self, size: int = -1):  # noqa: ARG002
+        raise RuntimeError("boom stream")
+
+
+class _BadTypeReader:
+    def read(self, size: int = -1):  # noqa: ARG002
+        return 123  # not bytes/str
+
+
+class _ErroringReaderAfterFirst:
+    def __init__(self):
+        self.calls = 0
+
+    def read(self, size: int = -1):  # noqa: ARG002
+        self.calls += 1
+        if self.calls == 1:
+            return "---\nfoo: 1\n"
+        raise RuntimeError("boom later")
 
 
 def test_parse_numeric_sequences_keep_types():

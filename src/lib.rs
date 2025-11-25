@@ -2,23 +2,26 @@ use pyo3::exceptions::{PyIOError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::sync::GILOnceCell;
 use pyo3::types::{
-    PyAnyMethods, PyDict, PyDictMethods, PyList, PyModule, PySequence, PySequenceMethods, PyString,
-    PyTuple,
+    PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyList, PyModule, PySequence, PySequenceMethods,
+    PyString, PyTuple,
 };
 use pyo3::Bound;
 use pyo3::IntoPyObjectExt;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
 use saphyr_parser::{Parser, ScalarStyle};
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
 use std::io::{self, Write};
 use std::mem;
+use std::rc::Rc;
 
 type Result<T> = PyResult<T>;
 
 static TAGGED_CLASS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+const READ_CHUNK_SIZE: usize = 8192;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct HandlerKeyOwned {
@@ -291,8 +294,19 @@ fn parse_yaml(
         return docs_to_python(py, docs, multi, handlers);
     }
 
+    if let Ok(read) = bound.getattr("read") {
+        let reader = read.unbind();
+        let error_flag = Rc::new(RefCell::new(None));
+        let iter = PyReadIter::new(py, reader, error_flag.clone());
+        let docs = load_yaml_documents_iter(iter, multi)?;
+        if let Some(err) = error_flag.borrow_mut().take() {
+            return Err(err);
+        }
+        return docs_to_python(py, docs, multi, handlers);
+    }
+
     Err(PyTypeError::new_err(
-        "`text` must be a string or a sequence of strings",
+        "`text` must be a string, a sequence of strings, or an object with .read()",
     ))
 }
 
@@ -300,7 +314,7 @@ fn parse_yaml(
 /// Read a YAML file from `path` and parse it.
 ///
 /// Args:
-///     path (str): Filesystem path to the YAML file to read.
+///     path (str | object with .read): Filesystem path or readable object yielding str/bytes.
 ///     multi (bool): Return a list of documents when true; otherwise a single document or None for empty input.
 ///     handlers (dict[str, Callable] | None): Optional tag handlers for values and keys; matching handlers receive the parsed value.
 ///
@@ -318,17 +332,36 @@ fn parse_yaml(
 ///     {'debug': True}
 fn read_yaml(
     py: Python<'_>,
-    path: &str,
+    path: PyObject,
     multi: bool,
     handlers: Option<PyObject>,
 ) -> Result<PyObject> {
     let handler_registry = HandlerRegistry::from_py(py, handlers.as_ref().map(|obj| obj.bind(py)))?;
     let handlers = handler_registry.as_ref();
 
-    let contents = fs::read_to_string(path)
-        .map_err(|err| PyIOError::new_err(format!("failed to read `{path}`: {err}")))?;
-    let docs = load_yaml_documents(&contents, multi)?;
-    docs_to_python(py, docs, multi, handlers)
+    let bound = path.bind(py);
+    if let Ok(s) = bound.downcast::<PyString>() {
+        let path_str = s.to_str()?;
+        let contents = fs::read_to_string(path_str)
+            .map_err(|err| PyIOError::new_err(format!("failed to read `{path_str}`: {err}")))?;
+        let docs = load_yaml_documents(&contents, multi)?;
+        return docs_to_python(py, docs, multi, handlers);
+    }
+
+    if let Ok(read) = bound.getattr("read") {
+        let reader = read.unbind();
+        let error_flag = Rc::new(RefCell::new(None));
+        let iter = PyReadIter::new(py, reader, error_flag.clone());
+        let docs = load_yaml_documents_iter(iter, multi)?;
+        if let Some(err) = error_flag.borrow_mut().take() {
+            return Err(err);
+        }
+        return docs_to_python(py, docs, multi, handlers);
+    }
+
+    Err(PyTypeError::new_err(
+        "`path` must be a string or an object with .read()",
+    ))
 }
 
 #[pyfunction(signature = (value, multi=false))]
@@ -364,7 +397,7 @@ fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<String> {
 ///
 /// Args:
 ///     value (object): Python value or Tagged to serialize; for `multi` the value must be a sequence of documents.
-///     path (str | None): Destination file path; when None the YAML is written to stdout.
+///     path (str | file-like | None): Destination path or object with `.write()`; when None the YAML is written to stdout.
 ///     multi (bool): Emit a multi-document stream when true; otherwise a single document.
 ///
 /// Returns:
@@ -379,7 +412,7 @@ fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<String> {
 ///     >>> Path('out.yml').exists()
 ///     True
 ///     >>> write_yaml(['first', 'second'], multi=True)  # prints YAML ending with '...'
-fn write_yaml(py: Python<'_>, value: PyObject, path: Option<&str>, multi: bool) -> Result<()> {
+fn write_yaml(py: Python<'_>, value: PyObject, path: Option<PyObject>, multi: bool) -> Result<()> {
     let bound = value.bind(py);
     let yaml = py_to_yaml(py, bound, false)?;
     let mut output = format_yaml_impl(&yaml, multi)?;
@@ -388,13 +421,41 @@ fn write_yaml(py: Python<'_>, value: PyObject, path: Option<&str>, multi: bool) 
     } else {
         output.push_str("\n...\n");
     }
-    if let Some(path) = path {
-        fs::write(path, &output)
-            .map_err(|err| PyIOError::new_err(format!("failed to write `{path}`: {err}")))?;
-    } else {
+    let Some(path_obj) = path else {
         write_to_stdout(&output)?;
+        return Ok(());
+    };
+
+    let bound_path = path_obj.bind(py);
+    if bound_path.is_none() {
+        write_to_stdout(&output)?;
+        return Ok(());
     }
-    Ok(())
+
+    if let Ok(path_str) = bound_path.downcast::<PyString>() {
+        let p = path_str.to_str()?;
+        fs::write(p, &output)
+            .map_err(|err| PyIOError::new_err(format!("failed to write `{p}`: {err}")))?;
+        return Ok(());
+    }
+
+    if let Ok(write) = bound_path.getattr("write") {
+        let writer = write.unbind();
+        let try_str = writer.bind(py).call1((output.as_str(),));
+        if let Err(err) = try_str {
+            if err.is_instance_of::<PyTypeError>(py) {
+                let bytes = PyBytes::new(py, output.as_bytes());
+                writer.bind(py).call1((bytes,))?;
+            } else {
+                return Err(err);
+            }
+        }
+        return Ok(());
+    }
+
+    Err(PyTypeError::new_err(
+        "`path` must be None, a string path, or an object with .write()",
+    ))
 }
 
 #[pyfunction]
@@ -430,8 +491,20 @@ fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
         return Ok(());
     }
 
+    if let Ok(read) = bound.getattr("read") {
+        let reader = read.unbind();
+        let error_flag = Rc::new(RefCell::new(None));
+        let iter = PyReadIter::new(py, reader, error_flag.clone());
+        let docs = load_yaml_documents_iter(iter, true)?;
+        if let Some(err) = error_flag.borrow_mut().take() {
+            return Err(err);
+        }
+        println!("{docs:#?}");
+        return Ok(());
+    }
+
     Err(PyTypeError::new_err(
-        "`text` must be a string or a sequence of strings",
+        "`text` must be a string, a sequence of strings, or an object with .read()",
     ))
 }
 
@@ -710,6 +783,122 @@ fn yaml_body(yaml: &str, multi: bool) -> &str {
         yaml
     } else {
         &yaml[4..]
+    }
+}
+
+struct PyReadIter<'py> {
+    py: Python<'py>,
+    reader: Py<PyAny>,
+    chars: std::str::Chars<'static>,
+    done: bool,
+    error: Rc<RefCell<Option<PyErr>>>,
+    buffer: String,
+}
+
+impl<'py> PyReadIter<'py> {
+    fn new(py: Python<'py>, reader: Py<PyAny>, error: Rc<RefCell<Option<PyErr>>>) -> Self {
+        Self {
+            py,
+            reader,
+            chars: "".chars(),
+            done: false,
+            error,
+            buffer: String::new(),
+        }
+    }
+
+    fn record_error(&self, err: PyErr) {
+        *self.error.borrow_mut() = Some(err);
+    }
+
+    fn fetch_next_chunk(&mut self) -> bool {
+        let read = self.reader.bind(self.py);
+        let result = read.call1((READ_CHUNK_SIZE,)).or_else(|err| {
+            if err.is_instance_of::<PyTypeError>(self.py) {
+                read.call0()
+            } else {
+                Err(err)
+            }
+        });
+
+        let obj = match result {
+            Ok(obj) => obj,
+            Err(err) => {
+                self.record_error(err);
+                return false;
+            }
+        };
+
+        if obj.is_instance_of::<PyString>() {
+            let s: Bound<'_, PyString> = obj.downcast_into().expect("type checked above");
+            let text = match s.to_str() {
+                Ok(text) => text,
+                Err(err) => {
+                    self.record_error(err);
+                    return false;
+                }
+            };
+            if text.is_empty() {
+                return false;
+            }
+            self.buffer.clear();
+            self.buffer.push_str(text);
+            // Safe because `self.buffer` lives for the lifetime of the iterator.
+            self.chars = unsafe {
+                std::mem::transmute::<std::str::Chars<'_>, std::str::Chars<'static>>(
+                    self.buffer.chars(),
+                )
+            };
+            true
+        } else if obj.is_instance_of::<PyBytes>() {
+            let bytes: Bound<'_, PyBytes> = obj.downcast_into().expect("type checked above");
+            let slice = bytes.as_bytes();
+            if slice.is_empty() {
+                return false;
+            }
+            let text = match std::str::from_utf8(slice) {
+                Ok(text) => text,
+                Err(err) => {
+                    self.record_error(PyValueError::new_err(format!(
+                        "connection.read() returned non-UTF-8 bytes ({err})"
+                    )));
+                    return false;
+                }
+            };
+            self.buffer.clear();
+            self.buffer.push_str(text);
+            // Safe because `self.buffer` lives for the lifetime of the iterator.
+            self.chars = unsafe {
+                std::mem::transmute::<std::str::Chars<'_>, std::str::Chars<'static>>(
+                    self.buffer.chars(),
+                )
+            };
+            true
+        } else {
+            self.record_error(PyTypeError::new_err(
+                "`read` must return str or bytes objects",
+            ));
+            false
+        }
+    }
+}
+
+impl<'py> Iterator for PyReadIter<'py> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done || self.error.borrow().is_some() {
+            return None;
+        }
+        loop {
+            if let Some(ch) = self.chars.next() {
+                return Some(ch);
+            }
+            if !self.fetch_next_chunk() {
+                self.done = true;
+                return None;
+            }
+        }
     }
 }
 
