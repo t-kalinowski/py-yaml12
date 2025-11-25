@@ -102,7 +102,7 @@ structure:
 ```python
 parsed = parse_yaml("true: true")
 key = next(iter(parsed))
-assert isinstance(key, Yaml) and key.value is True and parsed[key] is True
+assert key is True and parsed[key] is True and not isinstance(key, Yaml)
 ```
 
 Complex keys use the explicit mapping-key indicator `?`:
@@ -128,7 +128,7 @@ Handlers run on keys too, so a handler can turn tagged keys into friendly
 Python keys before they are wrapped.
 
 ```python
-handlers = {"!upper": lambda value: str(value).upper()}
+handlers = {"!upper": lambda value: str.upper}
 result = parse_yaml("!upper key: value", handlers=handlers)
 assert result == {"KEY": "value"}
 ```
@@ -216,11 +216,18 @@ Tagged collections or mapping keys work the same way:
 ```python
 from yaml12 import Yaml, format_yaml, parse_yaml
 
-mapping = {Yaml(["a", "b"], "!pair"): "v"}
+mapping = {
+    "tagged_value": Yaml(["a", "b"], "!pair"),
+    Yaml("tagged-key", "!k"): "v",
+}
 encoded = format_yaml(mapping)
 reparsed = parse_yaml(encoded)
-key = next(iter(reparsed))
-assert key.tag == "!pair" and key.value == ["a", "b"]
+
+value = reparsed["tagged_value"]
+assert isinstance(value, Yaml) and value.tag == "!pair" and value.value == ["a", "b"]
+
+key = next(k for k in reparsed if isinstance(k, Yaml))
+assert key.tag == "!k" and key.value == "tagged-key" and reparsed[key] == "v"
 ```
 
 ## Serializing custom Python objects
@@ -331,7 +338,7 @@ from yaml12 import Yaml, parse_yaml
 
 yaml_text = """
 - !!timestamp 2025-01-01
-- !!timestamp 2025-01-01 21:59:43.10 -5
+- !!timestamp 2025-01-01 21:59:43.10-05:00
 - !!binary UiBpcyBBd2Vzb21l
 """
 parsed = parse_yaml(yaml_text)

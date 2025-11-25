@@ -50,7 +50,7 @@ assert round_tripped == doc
 # Tagged values (advanced)
 from yaml12 import Yaml
 
-tagged = parse_yaml("!expr 1+1")
+tagged = parse_yaml("!expr 1 + 1")
 assert tagged == Yaml(value="1 + 1", tag="!expr")
 ```
 
