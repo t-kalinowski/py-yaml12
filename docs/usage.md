@@ -15,7 +15,7 @@ assert config["items"] == ["rust", "python"]
 
 - Set `multi=True` to parse a stream of documents into a list; `multi=False` returns only the first document and ignores the rest of the stream.
 - Supply `handlers` (a `dict` mapping tag strings to callables) to coerce specific tags on the fly. Handlers see already-parsed Python values and run for tagged keys as well as values. See [Custom Tags](tags.md) for details.
-- Non-core tags without handlers become `Tagged`. Tagged or otherwise unhashable mapping keys (lists/dicts) are wrapped in `MappingKey` so they remain usable as dictionary keys.
+- Non-core tags without handlers become `Tagged`. Unhashable mapping keys (lists/dicts or tagged collections) are wrapped in `MappingKey` so they remain usable as dictionary keys; tagged scalar keys remain plain `Tagged`.
 
 ## Read from files
 
@@ -32,7 +32,7 @@ File I/O errors raise `IOError`. Parse problems surface as `ValueError`. Invalid
 
 ## Emit YAML text
 
-`format_yaml(value, multi=False)` serializes a Python value (or list of documents when `multi=True`) into YAML text. Tagged values retain their tags unless they target core scalar tags like `!!int` or `!!str`. Complex mapping keys stay wrapped in `MappingKey`.
+`format_yaml(value, multi=False)` serializes a Python value (or list of documents when `multi=True`) into YAML text. Tagged values retain their tags unless they target core scalar tags like `!!int` or `!!str`. Unhashable mapping keys stay wrapped in `MappingKey`.
 
 ```python
 from yaml12 import format_yaml
@@ -64,4 +64,4 @@ write_yaml(["first", "second"], path="out.yml", multi=True)
 
 ## Complex mapping keys
 
-YAML allows sequences, mappings, and tagged scalars as keys. Parsed results wrap any unhashable key in a `MappingKey` so it can live in a Python `dict` while preserving equality and hashing by structure. To emit a complex key, wrap the key in `MappingKey` before passing it to `format_yaml` or `write_yaml`.
+YAML allows sequences, mappings, and tagged scalars as keys. Parsed results wrap any unhashable key (collections or tagged collections) in a `MappingKey` so it can live in a Python `dict` while preserving equality and hashing by structure. Tagged scalar keys remain plain `Tagged`. To emit an unhashable key, wrap it in `MappingKey` (for tagged collections, wrap the `Tagged` value itself) before passing it to `format_yaml` or `write_yaml`.

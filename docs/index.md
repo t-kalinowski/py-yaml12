@@ -4,7 +4,7 @@
 
 - Parse YAML text or files into familiar Python types with `parse_yaml` and `read_yaml`; handlers apply to both values and keys.
 - Serialize Python values back to YAML with `format_yaml` or write directly to disk/stdout with `write_yaml`, including non-core tags.
-- Round-trip non-scalar mapping keys using `MappingKey` to keep otherwise-unhashable keys stable.
+- Round-trip unhashable mapping keys using `MappingKey` to keep tagged collections, sequences, and mappings stable; tagged scalar keys stay plain `Tagged`.
 
 ## Installation
 

@@ -8,7 +8,7 @@ The `yaml12` module exposes parsing/formatting helpers plus two small dataclasse
 - `multi`: when `True`, parses the whole stream into a list (empty input yields `[]`); otherwise returns only the first document or `None` for empty input.
 - `handlers`: optional `dict[str, Callable]` mapping tag strings to callables; handlers apply to tagged values and keys and run on already-parsed Python values.
 - Returns parsed Python values. Non-core tags (and informative core tags like `!!timestamp`, `!!binary`, `!!set`, `!!omap`, `!!pairs`, or non-specific `!`) become `Tagged` when no handler matches. Scalar core tags (`!!str`, `!!int`, `!!bool`, `!!float`, `!!null`, `!!seq`, `!!map`) are normalized to plain Python types.
-- Complex mapping keys (sequences/mappings or tagged forms) are wrapped in `MappingKey` so they stay hashable; scalar keys remain plain.
+- Unhashable mapping keys (sequences/mappings) are wrapped in `MappingKey` so they can be hashable.
 - Raises `ValueError` on YAML parse errors or invalid tag strings; `TypeError` on wrong argument types; handler exceptions propagate unchanged.
 
 ## read_yaml(path, multi=False, handlers=None)

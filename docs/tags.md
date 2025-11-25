@@ -15,7 +15,7 @@ assert color.value == "red"
 assert color.tag == "!color"
 ```
 
-`Tagged` works for both scalar and collection nodes, including keys in mappings. You can serialize tagged values by passing a `Tagged` instance back into `format_yaml` or `write_yaml`. Non-specific tags (`!`) produce `Tagged("value", "!")` unless you supply a handler.
+`Tagged` works for both scalar and collection nodes, including keys in mappings. You can serialize tagged values by passing a `Tagged` instance back into `format_yaml` or `write_yaml`. Non-specific tags (`!`) produce `Tagged("value", "!")` unless you supply a handler. Tagged scalar keys stay plain `Tagged`; tagged collections are wrapped in `MappingKey(Tagged(...))` so they remain hashable.
 
 Core scalar tags (`!!str`, `!!int`, `!!float`, `!!bool`, `!!null`, `!!seq`, `!!map`) are normalized to plain Python values instead of `Tagged`. Informative core tags (such as `!!timestamp`, `!!binary`, `!!set`, `!!omap`, or `!!pairs`) stay tagged so you can choose whether to handle them or preserve them verbatim. Invalid values for core tags raise `ValueError`.
 

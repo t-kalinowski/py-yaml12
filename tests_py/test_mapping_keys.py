@@ -178,3 +178,25 @@ def test_complex_tagged_and_untagged_mapping_keys_round_trip():
     encoded = yaml12.format_yaml(parsed)
     reparsed = yaml12.parse_yaml(encoded)
     assert reparsed == parsed
+
+
+def test_tagged_scalar_mapping_key_remains_tagged():
+    parsed = yaml12.parse_yaml("!tag key: value\n")
+
+    key = next(iter(parsed))
+    assert isinstance(key, yaml12.Tagged)
+    assert not isinstance(key, yaml12.MappingKey)
+    assert key.tag == "!tag"
+    assert key.value == "key"
+    assert parsed[key] == "value"
+
+
+def test_tagged_collection_mapping_key_wraps_with_mapping_key():
+    parsed = yaml12.parse_yaml("? !seq [a, b]\n: val\n")
+
+    key = next(iter(parsed))
+    assert isinstance(key, yaml12.MappingKey)
+    assert isinstance(key.value, yaml12.Tagged)
+    assert key.value.tag == "!seq"
+    assert key.value.value == ["a", "b"]
+    assert parsed[yaml12.MappingKey(yaml12.Tagged(["a", "b"], "!seq"))] == "val"
