@@ -1268,8 +1268,6 @@ class Yaml:
         tag = f"{self.tag!r}, " if self.tag is not None else ""
         return f"Yaml({tag}{self.value!r})"
 
-Tagged = Yaml
-MappingKey = Yaml
 "#;
         let filename = CString::new("py_helpers.py").unwrap();
         let modname = CString::new("py_helpers").unwrap();
@@ -1288,8 +1286,6 @@ MappingKey = Yaml
         .get(py)
         .ok_or_else(|| PyValueError::new_err("Yaml class is not initialized"))?;
     module.add("Yaml", yaml_cls.clone_ref(py))?;
-    module.add("Tagged", yaml_cls.clone_ref(py))?;
-    module.add("MappingKey", yaml_cls.clone_ref(py))?;
     Ok(())
 }
 

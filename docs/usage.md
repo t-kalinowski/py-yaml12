@@ -1,7 +1,11 @@
 # YAML in 2 Minutes: A Gentle Introduction for Python Users
 
+```python
+from yaml12 import parse_yaml
+```
+
 YAML is a human-friendly data serialization format. Think of it as
-“JSON with comments and nicer multiline strings.” `yaml12` follows the
+"JSON with comments and nicer multiline strings." `yaml12` follows the
 modern YAML 1.2 spec (no surprising 1.1-era conversions).
 
 YAML has three building blocks: **scalars** (single values),
@@ -31,7 +35,24 @@ settings:
 ```
 
 ```python
-from yaml12 import parse_yaml
+first_example_text = """
+title: A Modern YAML parser written in Rust
+properties: [correct, safe, fast, simple]
+score: 9.5
+categories:
+  - yaml
+  - python
+  - example
+settings:
+  note: >
+    This is a folded block
+    that turns line breaks
+    into spaces.
+  note_literal: |
+    This is a literal block
+    that keeps
+    line breaks.
+"""
 
 doc = parse_yaml(first_example_text)
 
@@ -51,7 +72,7 @@ assert doc == {
 
 There are two collection types: **sequences** and **mappings**.
 
-### Sequences: YAML’s ordered collections
+### Sequences: YAML's ordered collections
 
 Each item begins with `-` at the parent indent.
 
@@ -114,7 +135,7 @@ JSON-style objects work too:
 {a: true}
 ```
 
-→ `{"a": True}`
+-> `{"a": True}`
 
 ## Scalars
 
@@ -133,7 +154,7 @@ lines keep breaks). Block scalars always become strings.
   world
 ```
 
-→ `"hello\nworld\n"`
+-> `"hello\nworld\n"`
 
 ```yaml
 >
@@ -141,7 +162,7 @@ lines keep breaks). Block scalars always become strings.
   world
 ```
 
-→ `"hello world\n"`
+-> `"hello world\n"`
 
 ### Quoted scalars
 
@@ -153,23 +174,23 @@ escapes, except for `''` which is parsed as a single `'`.
 ["line\nbreak", "quote: \"here\""]
 ```
 
-→ `["line\nbreak", 'quote: "here"']`
+-> `["line\nbreak", 'quote: "here"']`
 
 ```yaml
 ['line\nbreak', 'quote: ''here''']
 ```
 
-→ `["line\\nbreak", "quote: 'here'"]`
+-> `["line\\nbreak", "quote: 'here'"]`
 
 ### Plain (unquoted) scalars
 
 Plain nodes can resolve to one of five types: string, int, float, bool,
 or null.
 
-- `true` / `false` → `True` / `False`
-- `null`, `~`, or empty → `None`
+- `true` / `false` -> `True` / `False`
+- `null`, `~`, or empty -> `None`
 - numbers: signed, decimal, scientific, hex (`0x`), octal (`0o`),
-  `.inf`, `.nan` → `int` or `float`
+  `.inf`, `.nan` -> `int` or `float`
 - everything else stays a string (`yes`, `no`, `on`, `off` and other
   aliases remain strings in YAML 1.2)
 
@@ -177,7 +198,7 @@ or null.
 [true, 123, 4.5e2, 0x10, .inf, yes]
 ```
 
-→ `[True, 123, 450.0, 16, float("inf"), "yes"]`
+-> `[True, 123, 450.0, 16, float("inf"), "yes"]`
 
 ## End-to-end example
 
@@ -226,9 +247,11 @@ Python result:
   an indent; children are indented more. YAML 1.2 forbids tabs; use
   spaces.
 - All JSON is valid YAML.
+- Sequences stay Python lists; there is no vector "simplification."
 - Block scalars (`|`, `>`) always produce strings.
-- Booleans are only `true`/`false`.
-- `null` maps to `None`.
+- Booleans are only `true`/`false`; `null` maps to `None`.
+- Numbers can be signed, scientific, hex (`0x`), octal (`0o`), `.inf`,
+  and `.nan`.
 
-These essentials cover most YAML you’ll see. For tags, anchors, and
+These essentials cover most YAML you'll see. For tags, anchors, and
 non-string mapping keys, see the advanced guide.

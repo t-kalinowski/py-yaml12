@@ -5,6 +5,8 @@ build-backend = "maturin"
 [project]
 name = "yaml12"
 requires-python = ">=3.10"
+authors = [{ name = "Tomasz Kalinowski" }]
+maintainers = [{ name = "Tomasz Kalinowski" }]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",

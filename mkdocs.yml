@@ -9,7 +9,11 @@ nav:
   - Guides:
       - YAML in 2 Minutes: usage.md
       - Tags, Anchors, and Advanced YAML: tags.md
-  - API Reference: api.md
+  - Reference:
+      - Overview: reference/index.md
+      - parse_yaml() and read_yaml(): reference/parse_yaml.md
+      - format_yaml() and write_yaml(): reference/format_yaml.md
+  - Authors and Citation: authors.md
   - Contributing: contributing.md
 markdown_extensions:
   - admonition

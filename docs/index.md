@@ -1,14 +1,21 @@
 # yaml12
 
-`yaml12` exposes the Rust-based `saphyr` YAML 1.2 parser and emitter to Python through a small, function-first API. The bindings keep conversions lean, support multi-document streams, and materialize tagged nodes or unhashable mapping keys as a single lightweight `Yaml` dataclass; otherwise you just use plain Python types.
+A YAML 1.2 parser/formatter for Python, implemented in Rust for speed
+and correctness. Built on the excellent
+[`saphyr`](https://github.com/saphyr-rs/saphyr) crate.
 
-- Parse YAML text or files into familiar Python types with `parse_yaml` and `read_yaml`; handlers apply to both values and keys.
-- Serialize Python values back to YAML with `format_yaml` or write directly to disk/stdout with `write_yaml`, including non-core tags.
-- Round-trip tagged nodes and unhashable mapping keys using `Yaml`, keeping tagged scalars, tagged collections, and bare collections stable across parse/format.
+For almost every use case, `yaml12` lets you work with plain builtin Python types end to end: `dict`, `list`, `int`, `float`, `str`, and `None`.
+
+- Parse YAML text or files with `parse_yaml()` and `read_yaml()`.
+- Serialize Python values with `format_yaml()` or `write_yaml()`.
+- 100% compliance with the [yaml-test-suite](https://github.com/yaml/yaml-test-suite).
+- Advanced YAML features (document streams, tags, complex mapping keys) are supported and
+  round-trip cleanly when needed; see the advanced guide if needed.
 
 ## Installation
 
-The project targets Python 3.10+ and builds via `maturin` (Rust toolchain required). From the repository root:
+The project targets Python 3.10+ and builds via `maturin` (Rust
+toolchain required). From the repository root:
 
 ```bash
 python -m venv .venv
@@ -74,7 +81,8 @@ assert docs_in == docs_out
 
 ### Tag handlers
 
-Handlers let you opt into custom behaviour for tagged nodes while keeping the default parser strict and safe.
+Handlers let you opt into custom behaviour for tagged nodes while
+keeping the default parser strict and safe.
 
 ```python
 from yaml12 import parse_yaml
@@ -96,12 +104,12 @@ assert doc == [["RUST", "PYTHON"], 42]
 ### Formatting and round-tripping
 
 ```python
-from yaml12 import Yaml, format_yaml, parse_yaml
+from yaml12 import format_yaml, parse_yaml, Yaml
 
 obj = {
     "seq": [1, 2],
     "map": {"key": "value"},
-    "tagged": Yaml("1 + 1", "!expr"),
+    "tagged": Yaml(value="1 + 1", tag="!expr"),
 }
 
 yaml_text = format_yaml(obj)
@@ -121,26 +129,23 @@ assert parsed == {
 }
 ```
 
-## Where to go next
+### Tagged nodes and mapping keys (advanced)
 
-- Learn YAML essentials in [YAML in 2 Minutes](usage.md).
-- Explore tags, anchors, and advanced features in [Tags, Anchors, and Advanced YAML](tags.md).
-- Scan the callable surface in [API Reference](api.md).
+Tags, custom handlers, and non-string mapping keys work without extra
+setup when you need them. Nodes that cannot be represented as plain
+Python types are wrapped in `Yaml` (a frozen dataclass). You will only
+see `Yaml` when:
 
-## Build or serve the docs locally
+- A tagged node has no matching handler; inspect `.value` and `.tag`.
+- A mapping key is a collection or otherwise unhashable; wrapping makes
+  it hashable while preserving any tag.
 
-Install MkDocs if you have not already:
+See the advanced guide for details.
 
-```bash
-python -m pip install mkdocs
-```
+## Documentation
 
-Then from the project root:
-
-```bash
-# Build static site into ./site
-.venv/bin/mkdocs build
-
-# Serve with live reload at http://127.0.0.1:8000
-.venv/bin/mkdocs serve
-```
+- [YAML in 2 Minutes](usage.md) for a quick primer.
+- [Tags, Anchors, and Advanced YAML](tags.md) for handlers, mapping keys,
+  document streams, and advanced tags.
+- [Reference](reference/index.md) for detailed signatures and examples.
+- [Contributing](contributing.md) for building or serving the docs locally.

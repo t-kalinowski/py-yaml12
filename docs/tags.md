@@ -8,12 +8,11 @@ can handle real-world YAML.
 ## Tags in YAML and how yaml12 handles them
 
 Tags annotate any YAML node with extra meaning. They always start with
-`!` in YAML syntax and appear before the node’s value; they are not part
+`!` in YAML syntax and appear before the node's value; they are not part
 of the scalar text itself.
 
-`yaml12` preserves tags as `Yaml` objects (also exported as `Tagged`).
-The object carries `value` (a regular Python type) and `tag` (a string).
-Parsing a tagged scalar:
+`yaml12` preserves tags as `Yaml` objects. The object carries `value` (a
+regular Python type) and `tag` (a string). Parsing a tagged scalar:
 
 ```python
 from yaml12 import Yaml, parse_yaml
@@ -166,7 +165,9 @@ assert (parsed_first, parsed_all) == ("doc 1", ["doc 1", "doc 2"])
 
 `write_yaml()` and `format_yaml()` default to a single document. With
 `multi=True`, the value must be a sequence of documents and the output
-uses `---` between documents and `...` after the final one.
+uses `---` between documents and `...` after the final one. For single
+documents, `write_yaml()` always wraps the body with `---` and a final
+`...`, while `format_yaml()` returns just the body.
 
 ```python
 from yaml12 import format_yaml, write_yaml
@@ -177,9 +178,22 @@ assert text.startswith("---") and text.rstrip().endswith("...")
 write_yaml(docs, path="out.yml", multi=True)
 ```
 
-When `multi=False`, parsing stops after the first document—even if later
+When `multi=False`, parsing stops after the first document, even if later
 content is not valid YAML. That makes it easy to extract front matter
 from files that mix YAML with other text (like Markdown).
+
+```python
+rmd_lines = [
+    "---",
+    "title: Front matter only",
+    "params:",
+    "  answer: 42",
+    "---",
+    "# Body that is not YAML",
+]
+frontmatter = parse_yaml(rmd_lines)
+assert frontmatter == {"title": "Front matter only", "params": {"answer": 42}}
+```
 
 ## Writing YAML with tags
 
