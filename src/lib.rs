@@ -7,7 +7,7 @@ use pyo3::types::{
 };
 use pyo3::Bound;
 use pyo3::IntoPyObjectExt;
-use saphyr::{LoadableYamlNode, Mapping, Scalar, Tag, Yaml, YamlEmitter};
+use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
 use saphyr_parser::{Parser, ScalarStyle};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -256,13 +256,44 @@ fn parse_yaml(
     let handlers = handler_registry.as_ref();
 
     let bound = text.bind(py);
-    let joined = join_text(bound)?;
-    if joined.is_none() {
-        return Ok(py.None());
+    if let Ok(s) = bound.downcast::<PyString>() {
+        let src = s.to_str()?;
+        if src.is_empty() {
+            return if multi {
+                Ok(PyList::empty(py).unbind().into())
+            } else {
+                Ok(py.None())
+            };
+        }
+        let docs = load_yaml_documents(src, multi)?;
+        return docs_to_python(py, docs, multi, handlers);
     }
-    let src = joined.as_deref().unwrap();
-    let docs = load_yaml_documents(src, multi)?;
-    docs_to_python(py, docs, multi, handlers)
+
+    if let Ok(seq) = bound.downcast::<PySequence>() {
+        let len = seq.len()?;
+        if len == 0 {
+            return if multi {
+                Ok(PyList::empty(py).unbind().into())
+            } else {
+                Ok(py.None())
+            };
+        }
+        let mut lines: Vec<Py<PyString>> = Vec::with_capacity(len);
+        for idx in 0..len {
+            let item = seq.get_item(idx)?;
+            let s: Bound<'_, PyString> = item.downcast_into().map_err(|_| {
+                PyTypeError::new_err("`text` sequence must contain only strings without None")
+            })?;
+            lines.push(s.unbind());
+        }
+        let iter = JoinedLinesIter::new(py, &lines);
+        let docs = load_yaml_documents_iter(iter, multi)?;
+        return docs_to_python(py, docs, multi, handlers);
+    }
+
+    Err(PyTypeError::new_err(
+        "`text` must be a string or a sequence of strings",
+    ))
 }
 
 #[pyfunction(signature = (path, multi=false, handlers=None))]
@@ -370,35 +401,33 @@ fn write_yaml(py: Python<'_>, value: PyObject, path: Option<&str>, multi: bool) 
 /// Debug helper: pretty-print parsed YAML nodes without converting to Python values.
 fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
     let bound = text.bind(py);
-    let joined = join_text(bound)?;
-    let Some(src) = joined.as_deref() else {
+    if let Ok(s) = bound.downcast::<PyString>() {
+        let src = s.to_str()?;
+        if src.is_empty() {
+            return Ok(());
+        }
+        let docs = load_yaml_documents(src, true)?;
+        println!("{docs:#?}");
         return Ok(());
-    };
-    let docs = Yaml::load_from_str(src)
-        .map_err(|err| PyValueError::new_err(format!("YAML parse error: {err}")))?;
-    println!("{docs:#?}");
-    Ok(())
-}
-
-fn join_text(text: &Bound<'_, PyAny>) -> Result<Option<String>> {
-    if let Ok(s) = text.downcast::<PyString>() {
-        return Ok(Some(s.to_str()?.to_owned()));
     }
 
-    if let Ok(seq) = text.downcast::<PySequence>() {
+    if let Ok(seq) = bound.downcast::<PySequence>() {
         let len = seq.len()?;
         if len == 0 {
-            return Ok(None);
+            return Ok(());
         }
-        let mut parts: Vec<String> = Vec::with_capacity(len);
+        let mut lines: Vec<Py<PyString>> = Vec::with_capacity(len);
         for idx in 0..len {
             let item = seq.get_item(idx)?;
-            let s = item.downcast::<PyString>().map_err(|_| {
+            let s: Bound<'_, PyString> = item.downcast_into().map_err(|_| {
                 PyTypeError::new_err("`text` sequence must contain only strings without None")
             })?;
-            parts.push(s.to_str()?.to_owned());
+            lines.push(s.unbind());
         }
-        return Ok(Some(parts.join("\n")));
+        let iter = JoinedLinesIter::new(py, &lines);
+        let docs = load_yaml_documents_iter(iter, true)?;
+        println!("{docs:#?}");
+        return Ok(());
     }
 
     Err(PyTypeError::new_err(
@@ -428,6 +457,19 @@ fn docs_to_python(
 
 fn load_yaml_documents<'input>(text: &'input str, multi: bool) -> Result<Vec<Yaml<'input>>> {
     let mut parser = Parser::new_from_str(text);
+    let mut loader = saphyr::YamlLoader::default();
+    loader.early_parse(false);
+    parser
+        .load(&mut loader, multi)
+        .map_err(|err| PyValueError::new_err(format!("YAML parse error: {err}")))?;
+    Ok(loader.into_documents())
+}
+
+fn load_yaml_documents_iter<'input, I>(iter: I, multi: bool) -> Result<Vec<Yaml<'input>>>
+where
+    I: Iterator<Item = char> + 'input,
+{
+    let mut parser = Parser::new_from_iter(iter);
     let mut loader = saphyr::YamlLoader::default();
     loader.early_parse(false);
     parser
@@ -668,6 +710,62 @@ fn yaml_body(yaml: &str, multi: bool) -> &str {
         yaml
     } else {
         &yaml[4..]
+    }
+}
+
+struct JoinedLinesIter<'py, 'a: 'py> {
+    py: Python<'py>,
+    lines: &'a [Py<PyString>],
+    next_line: usize,
+    current: std::str::Chars<'py>,
+    has_current: bool,
+}
+
+impl<'py, 'a: 'py> JoinedLinesIter<'py, 'a> {
+    fn new(py: Python<'py>, lines: &'a [Py<PyString>]) -> Self {
+        let mut iter = Self {
+            py,
+            lines,
+            next_line: 0,
+            current: "".chars(),
+            has_current: false,
+        };
+        iter.advance_line();
+        iter
+    }
+
+    fn advance_line(&mut self) {
+        if self.next_line >= self.lines.len() {
+            self.has_current = false;
+            self.current = "".chars();
+            return;
+        }
+        let line = self.lines[self.next_line].bind(self.py);
+        self.next_line += 1;
+        self.current = line
+            .to_str()
+            .expect("PyString should contain valid UTF-8")
+            .chars();
+        self.has_current = true;
+    }
+}
+
+impl<'py, 'a> Iterator for JoinedLinesIter<'py, 'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.has_current {
+            return None;
+        }
+        if let Some(ch) = self.current.next() {
+            return Some(ch);
+        }
+        if self.next_line >= self.lines.len() {
+            self.has_current = false;
+            return None;
+        }
+        self.advance_line();
+        Some('\n')
     }
 }
 
