@@ -87,6 +87,10 @@ jobs:
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
+    env:
+      # rustc's default ~1MB stack overflows on i686 Windows for heavy macro/type
+      # expansion (seen during maturin builds). Bump to keep builds stable.
+      RUST_MIN_STACK: 16777216
     strategy:
       matrix:
         platform:
