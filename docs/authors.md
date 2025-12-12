@@ -16,6 +16,6 @@ Python*. Python package version 0.1.0.
   author  = {Tomasz Kalinowski},
   year    = {2025},
   version = {0.1.0},
-  url     = {https://github.com/t-kalinowski/py-yaml12}
+  url     = {https://github.com/posit-dev/py-yaml12}
 }
 ```

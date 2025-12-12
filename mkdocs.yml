@@ -1,8 +1,8 @@
 site_name: yaml12
 site_description: Rust-backed YAML 1.2 parsing and emitting for Python.
-site_url: https://t-kalinowski.github.io/py-yaml12/
-repo_url: https://github.com/t-kalinowski/py-yaml12
-repo_name: t-kalinowski/py-yaml12
+site_url: https://posit-dev.github.io/py-yaml12/
+repo_url: https://github.com/posit-dev/py-yaml12
+repo_name: posit-dev/py-yaml12
 theme:
   name: mkdocs
 nav:

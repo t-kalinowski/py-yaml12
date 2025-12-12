@@ -30,10 +30,10 @@ keywords = ["yaml", "parser", "serializer", "rust", "pyo3", "abi3"]
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/t-kalinowski/py-yaml12"
-Documentation = "https://github.com/t-kalinowski/py-yaml12/tree/main/docs"
-Source = "https://github.com/t-kalinowski/py-yaml12"
-Issues = "https://github.com/t-kalinowski/py-yaml12/issues"
+Homepage = "https://github.com/posit-dev/py-yaml12"
+Documentation = "https://posit-dev.github.io/py-yaml12/"
+Source = "https://github.com/posit-dev/py-yaml12"
+Issues = "https://github.com/posit-dev/py-yaml12/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module", "pyo3/abi3-py310"]

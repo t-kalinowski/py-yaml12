@@ -4,9 +4,12 @@
 from yaml12 import parse_yaml
 ```
 
-YAML is a human-friendly data serialization format. Think of it as
-"JSON with comments and nicer multiline strings." `yaml12` follows the
-modern YAML 1.2 spec (no surprising 1.1-era conversions).
+Here’s a short introduction to YAML for Python users. YAML is a data
+serialization format designed to be easy for humans to read and write.
+
+Think of YAML as “JSON with comments and nicer multiline strings.”
+`yaml12` parses YAML 1.2 (the modern specification that removes some of
+YAML 1.1’s surprising eager conversions) into plain Python objects.
 
 YAML has three building blocks: **scalars** (single values),
 **sequences** (ordered collections), and **mappings** (key/value pairs).
@@ -34,26 +37,9 @@ settings:
     line breaks.
 ```
 
-```python
-first_example_text = """
-title: A Modern YAML parser written in Rust
-properties: [correct, safe, fast, simple]
-score: 9.5
-categories:
-  - yaml
-  - python
-  - example
-settings:
-  note: >
-    This is a folded block
-    that turns line breaks
-    into spaces.
-  note_literal: |
-    This is a literal block
-    that keeps
-    line breaks.
-"""
+Let’s parse that with `yaml12`:
 
+```python
 doc = parse_yaml(first_example_text)
 
 assert doc == {
@@ -68,26 +54,45 @@ assert doc == {
 }
 ```
 
+## Comments
+
+Comments start with `#` and run to the end of the line. They must be
+separated from values by whitespace and can sit on their own line or at
+line ends. `yaml12` ignores them.
+
+```yaml
+# Whole-line comment
+title: example # inline comment
+items: [a, b] # trailing comment
+```
+
+→ `{"title": "example", "items": ["a", "b"]}`
+
 ## Collections
 
 There are two collection types: **sequences** and **mappings**.
 
 ### Sequences: YAML's ordered collections
 
-Each item begins with `-` at the parent indent.
+A sequence is a list of items. Each item begins with `-` at the parent
+indent.
 
 ```yaml
 - cat
 - dog
 ```
 
-parses to `["cat", "dog"]`.
+→ `["cat", "dog"]`
+
+Sequences become `list`s in Python.
 
 JSON-style arrays work too:
 
 ```yaml
 [cat, dog]
 ```
+
+→ same result
 
 Anything belonging to one of the sequence entries is indented at least
 one space past the dash:
@@ -110,14 +115,16 @@ parses to:
 
 ### Mappings: key/value pairs
 
-Mappings are sets of `key: value` pairs at the same indent:
+A mapping is a set of `key: value` pairs at the same indent:
 
 ```yaml
 foo: 1
 bar: true
 ```
 
-parses to `{"foo": 1, "bar": True}`.
+→ `{"foo": 1, "bar": True}`
+
+Mappings become `dict`s in Python.
 
 A key at its indent owns anything indented more:
 
@@ -135,12 +142,14 @@ JSON-style objects work too:
 {a: true}
 ```
 
--> `{"a": True}`
+→ `{"a": True}`
 
 ## Scalars
 
-Everything that is not a collection is a scalar. Scalars can be block,
-quoted, or plain.
+All nodes that are not collections are scalars; these are the leaf
+values of a YAML document.
+
+Scalars can come in three forms: block, quoted, or plain.
 
 ### Block scalars
 
@@ -154,7 +163,7 @@ lines keep breaks). Block scalars always become strings.
   world
 ```
 
--> `"hello\nworld\n"`
+→ `"hello\nworld\n"`
 
 ```yaml
 >
@@ -162,7 +171,7 @@ lines keep breaks). Block scalars always become strings.
   world
 ```
 
--> `"hello world\n"`
+→ `"hello world\n"`
 
 ### Quoted scalars
 
@@ -174,18 +183,18 @@ escapes, except for `''` which is parsed as a single `'`.
 ["line\nbreak", "quote: \"here\""]
 ```
 
--> `["line\nbreak", 'quote: "here"']`
+→ `["line\nbreak", 'quote: "here"']`
 
 ```yaml
 ['line\nbreak', 'quote: ''here''']
 ```
 
--> `["line\\nbreak", "quote: 'here'"]`
+→ `["line\\nbreak", "quote: 'here'"]`
 
 ### Plain (unquoted) scalars
 
-Plain nodes can resolve to one of five types: string, int, float, bool,
-or null.
+Plain (unquoted) nodes can resolve to one of five types: string, int,
+float, bool, or null.
 
 - `true` / `false` -> `True` / `False`
 - `null`, `~`, or empty -> `None`
@@ -198,7 +207,7 @@ or null.
 [true, 123, 4.5e2, 0x10, .inf, yes]
 ```
 
--> `[True, 123, 450.0, 16, float("inf"), "yes"]`
+→ `[True, 123, 450.0, 16, float("inf"), "yes"]`
 
 ## End-to-end example
 
@@ -223,7 +232,7 @@ doc:
   mixed: [won't simplify, 123, true]
 ```
 
-Python result:
+Python result (`parse_yaml()` with defaults):
 
 ```python
 {
@@ -253,5 +262,6 @@ Python result:
 - Numbers can be signed, scientific, hex (`0x`), octal (`0o`), `.inf`,
   and `.nan`.
 
-These essentials cover most YAML you'll see. For tags, anchors, and
-non-string mapping keys, see the advanced guide.
+These essentials cover most YAML you’ll run into in practice. If you
+encounter tags, anchors, or non-string mapping keys, the advanced guide
+walks through those in detail.

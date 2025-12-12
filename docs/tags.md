@@ -1,18 +1,19 @@
 # YAML Tags, Anchors, and Advanced Features with yaml12
 
-This guide picks up where the 2-minute intro leaves off. It shows what
-YAML tags are and how to work with them in `yaml12` using handlers.
-Along the way it covers complex mapping keys and document streams so you
-can handle real-world YAML.
+This guide picks up where the “YAML in 2 Minutes” intro leaves off. It
+explains what YAML tags are and how to work with them in `yaml12` using
+tag handlers. Along the way we also cover complex mapping keys, document
+streams, and anchors, so you can handle real-world YAML 1.2.
 
 ## Tags in YAML and how yaml12 handles them
 
-Tags annotate any YAML node with extra meaning. They always start with
-`!` in YAML syntax and appear before the node's value; they are not part
-of the scalar text itself.
+Tags annotate any YAML node with extra meaning. In YAML syntax a tag
+always starts with `!`, and it appears before the node’s value; it is
+not part of the scalar text itself.
 
-`yaml12` preserves tags as `Yaml` objects. The object carries `value` (a
-regular Python type) and `tag` (a string). Parsing a tagged scalar:
+`yaml12` preserves tags by wrapping nodes in a `Yaml` object. A `Yaml`
+is a small frozen dataclass that carries the parsed `value` (a regular
+Python type) and the `tag` string. Here is an example of parsing a tagged scalar:
 
 ```python
 from yaml12 import Yaml, parse_yaml
@@ -21,8 +22,8 @@ color = parse_yaml("!color red")
 assert isinstance(color, Yaml) and (color.tag, color.value) == ("!color", "red")
 ```
 
-Custom tags bypass the usual scalar typing; the scalar is returned as a
-string even if it looks like another type.
+The presence of a custom tag bypasses the usual scalar typing: the
+scalar is returned as a string even if it looks like another type.
 
 ```python
 assert parse_yaml("! true") == Yaml(value="true", tag="!")
@@ -33,40 +34,94 @@ assert parse_yaml("true") is True
 
 `parse_yaml()` and `read_yaml()` accept `handlers`: a `dict` mapping tag
 strings to callables. Handlers run on any matching tagged node. For
-tagged scalars the handler receives the Python scalar; for tagged
-sequences or mappings it receives a plain list/dict.
+tagged scalars the handler receives a plain Python scalar; for tagged
+sequences or mappings, it receives a plain list or dict.
+
+Here is an example of using a handler to evaluate `!expr` nodes:
 
 ```python
-from dataclasses import dataclass
 from yaml12 import parse_yaml
 
-@dataclass(frozen=True)
-class Point:
-    x: int
-    y: int
+handlers = {"!expr": lambda value: eval(str(value))}
 
-def point_handler(value):
-    return Point(x=value["x"], y=value["y"])
-
-doc = parse_yaml(
-    "vertex: !point {x: 1,  y: 2}",
-    handlers={"!point": point_handler},
-)
-
-assert doc["vertex"] == Point(1, 2)
+assert parse_yaml("!expr 1 + 1", handlers=handlers) == 2
 ```
 
-Handlers apply to both values and keys, including non-specific `!` tags
-if you register `"!"`. If a handler raises an exception, it propagates
-unchanged to make debugging easy.
+Any errors from a handler stop parsing and propagate unchanged:
 
-Any tag without a matching handler stays as a `Yaml` object. Handlers
-without matching tags are simply unused.
+```python
+from yaml12 import parse_yaml
+
+def boom(value):
+    raise ValueError("boom")
+
+parse_yaml("!boom 1", handlers={"!boom": boom})  # ValueError("boom")
+```
+
+Any tag without a matching handler is left preserved as a `Yaml` object,
+and handlers without matching tags are simply unused:
+
+```python
+from yaml12 import Yaml, parse_yaml
+
+yaml_text = """
+- !expr 1 + 1
+- !upper yaml is awesome
+- !note this tag has no handler
+"""
+
+handlers = {
+    "!expr": lambda value: eval(str(value)),
+    "!upper": str.upper,
+    "!lower": str.lower,  # unused
+}
+
+out = parse_yaml(yaml_text, handlers=handlers)
+assert out == [2, "YAML IS AWESOME", Yaml("this tag has no handler", "!note")]
+```
+
+With a tagged sequence or mapping, the handler is called with a plain
+list or dict:
+
+```python
+from yaml12 import parse_yaml
+
+def seq_handler(value):
+    assert value == ["a", "b"]
+    return "handled-seq"
+
+def map_handler(value):
+    assert value == {"key1": 1, "key2": 2}
+    return "handled-map"
+
+yaml_text = """
+- !some_seq_tag [a, b]
+- !some_map_tag {key1: 1, key2: 2}
+"""
+
+out = parse_yaml(
+    yaml_text,
+    handlers={
+        "!some_seq_tag": seq_handler,
+        "!some_map_tag": map_handler,
+    },
+)
+assert out == ["handled-seq", "handled-map"]
+```
+
+Handlers apply to both values and keys, including the non-specific `!`
+tag if you register `"!"`. If a handler raises an exception, parsing
+stops and you see the exception unchanged, which makes debugging easy.
+
+Any tag without a matching handler stays as a `Yaml` object, and any
+unused handlers are simply ignored. Handlers make it easy to opt into
+powerful behaviors while keeping the default parser strict and safe.
 
 ### Post-process tags yourself
 
-You can also parse without handlers and walk the result yourself. For
-example, processing `!expr` scalars manually:
+If you want more control, you can parse without handlers and then walk
+the result yourself. For example, here is a tiny post-processor for
+`!expr` scalars:
 
 ```python
 from yaml12 import Yaml, parse_yaml
@@ -86,18 +141,25 @@ raw = parse_yaml("!expr 1 + 1")
 assert isinstance(raw, Yaml) and eval_yaml_expr_nodes(raw) == 2
 ```
 
+Because tags can also appear on mapping keys, postprocessors should walk
+dict keys as well (as in the example above). If you transform all tagged
+keys into plain hashable scalars, you can rebuild a dict with those new
+keys.
+
 ## Mappings revisited: non-string keys and `Yaml`
 
-YAML mapping keys do not have to be plain strings; any node can be a
-key. For example, this is valid even though the key is a boolean:
+In YAML, mapping keys do not have to be plain strings; any node can be a
+key, including booleans, numbers, sequences, or other mappings. For
+example, this is valid YAML even though the key is a boolean:
 
 ```yaml
 true: true
 ```
 
-Parsed with `yaml12`, unhashable or tagged keys become `Yaml` so they
-can live in a Python `dict` while preserving equality and hashing by
-structure:
+When a key can’t be represented directly as a plain Python dict key,
+`yaml12` wraps it in `Yaml`. That preserves the original key and makes
+it hashable (with equality defined by structure), so it can safely live
+in a Python `dict`:
 
 ```python
 parsed = parse_yaml("true: true")
@@ -105,7 +167,8 @@ key = next(iter(parsed))
 assert key is True and parsed[key] is True and not isinstance(key, Yaml)
 ```
 
-Complex keys use the explicit mapping-key indicator `?`:
+For complex key values, YAML uses the explicit mapping-key indicator
+`?`:
 
 ```yaml
 ? [a, b]
@@ -117,15 +180,27 @@ Complex keys use the explicit mapping-key indicator `?`:
 Becomes:
 
 ```python
-parsed = parse_yaml(...above yaml...)
-keys = list(parsed)
-assert all(isinstance(k, Yaml) for k in keys) and keys[0].value == ["a", "b"] and keys[1].value == {"x": 1, "y": 2}
+from yaml12 import Yaml, parse_yaml
+
+yaml_text = """
+? [a, b]
+: tuple
+? {x: 1, y: 2}
+: map-key
+"""
+parsed = parse_yaml(yaml_text)
+
+seq_key, map_key = list(parsed)
+assert isinstance(seq_key, Yaml) and seq_key.value == ["a", "b"]
+assert isinstance(map_key, Yaml) and map_key.value == {"x": 1, "y": 2}
+assert parsed[Yaml(["a", "b"])] == "tuple"
+assert parsed[Yaml({"x": 1, "y": 2})] == "map-key"
 ```
 
 ### Tagged mapping keys
 
-Handlers run on keys too, so a handler can turn tagged keys into friendly
-Python keys before they are wrapped.
+Handlers run on keys too, so a handler can turn tagged keys into
+friendly Python keys before they are wrapped.
 
 ```python
 handlers = {"!upper": str.upper}
@@ -133,20 +208,31 @@ result = parse_yaml("!upper key: value", handlers=handlers)
 assert result == {"KEY": "value"}
 ```
 
+If a tagged key has no matching handler, it is preserved as a `Yaml`
+key:
+
+```python
+from yaml12 import Yaml, parse_yaml
+
+parsed = parse_yaml("!custom foo: 1")
+key = next(iter(parsed))
+assert isinstance(key, Yaml) and key.tag == "!custom" and key.value == "foo"
+```
+
 If you anticipate tagged mapping keys that you want to process yourself,
 walk the `Yaml` keys alongside the values and unwrap them as needed.
 
 ## Document streams and markers
 
-Most YAML files contain a single document. YAML also supports document
-streams: multiple documents separated by `---` and optionally closed by
-`...`.
+Most YAML files contain a single YAML *document*. YAML also supports
+*document streams*: multiple documents separated by `---` and
+optionally closed by `...`.
 
 ### Reading multiple documents
 
-`parse_yaml()` and `read_yaml()` default to `multi=False`, returning only
-the first document. When `multi=True`, all documents are returned as a
-list.
+`parse_yaml()` and `read_yaml()` default to `multi=False`. In that mode,
+they stop after the first document. When `multi=True`, all documents in
+the stream are returned as a list.
 
 ```python
 doc_stream = """
@@ -163,11 +249,11 @@ assert (parsed_first, parsed_all) == ("doc 1", ["doc 1", "doc 2"])
 
 ### Writing multiple documents
 
-`write_yaml()` and `format_yaml()` default to a single document. With
-`multi=True`, the value must be a sequence of documents and the output
-uses `---` between documents and `...` after the final one. For single
-documents, `write_yaml()` always wraps the body with `---` and a final
-`...`, while `format_yaml()` returns just the body.
+`write_yaml()` and `format_yaml()` also default to a single document.
+With `multi=True`, the value must be a sequence of documents and the
+output uses `---` between documents and `...` after the final one. For
+single documents, `write_yaml()` always wraps the body with `---` and a
+final `...`, while `format_yaml()` returns just the body.
 
 ```python
 from yaml12 import format_yaml, write_yaml
@@ -178,7 +264,7 @@ assert text.startswith("---") and text.rstrip().endswith("...")
 write_yaml(docs, path="out.yml", multi=True)
 ```
 
-When `multi=False`, parsing stops after the first document, even if later
+When `multi=False`, parsing stops after the first document—even if later
 content is not valid YAML. That makes it easy to extract front matter
 from files that mix YAML with other text (like Markdown).
 
@@ -197,8 +283,8 @@ assert frontmatter == {"title": "Front matter only", "params": {"answer": 42}}
 
 ## Writing YAML with tags
 
-Attach `Yaml` to values before calling `format_yaml()` or `write_yaml()`
-to emit a tag.
+To emit a tag, wrap a value in `Yaml` before calling `format_yaml()` or
+`write_yaml()`.
 
 ```python
 from yaml12 import Yaml, write_yaml
@@ -232,8 +318,9 @@ assert key.tag == "!k" and key.value == "tagged-key" and reparsed[key] == "v"
 
 ## Serializing custom Python objects
 
-You can opt into rich types by tagging your own objects on emit and
-supplying a handler on parse. Here is a round-trip for a dataclass:
+You can opt into richer domain types by tagging your own objects on
+emit and supplying a handler on parse. Here is a round-trip for a
+dataclass:
 
 ```python
 from dataclasses import dataclass, asdict
@@ -283,7 +370,24 @@ first, second = parsed["recycled"]
 assert first["a"] == "b" and second["c"] == "d"
 ```
 
+## Debugging
+
+If you want to inspect how YAML nodes are parsed before conversion to
+Python types, use the internal helper `yaml12._dbg_yaml()` to
+pretty-print the raw `saphyr::Yaml` structures:
+
+```python
+import yaml12
+
+yaml12._dbg_yaml("!custom [1, 2]")
+```
+
+`_dbg_yaml` is intended for debugging and may change without notice.
+
 ## (Very) advanced tags
+
+The following YAML features are uncommon, but `yaml12` supports them for
+full YAML 1.2 compliance.
 
 ### Tag directives (`%TAG`)
 
@@ -332,6 +436,10 @@ Tags beginning with `!!` resolve against the YAML core schema handle
 and are normalized to plain Python values. Informative core tags
 (`!!timestamp`, `!!binary`, `!!set`, `!!omap`, `!!pairs`) stay tagged so
 you can decide how to handle them.
+
+YAML 1.2 removed these informative tags from the core schema, but they are
+still valid tags and occasionally useful. `yaml12` preserves them as `Yaml`
+unless you supply a handler to convert them to richer Python types.
 
 ```python
 from yaml12 import Yaml, parse_yaml

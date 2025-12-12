@@ -132,13 +132,20 @@ assert parsed == {
 ### Tagged nodes and mapping keys (advanced)
 
 Tags, custom handlers, and non-string mapping keys work without extra
-setup when you need them. Nodes that cannot be represented as plain
-Python types are wrapped in `Yaml` (a frozen dataclass). You will only
-see `Yaml` when:
+setup when you need them. Nodes that can’t be represented as plain
+Python types are wrapped in `Yaml` (a small frozen dataclass). You’ll
+only see `Yaml` when:
 
 - A tagged node has no matching handler; inspect `.value` and `.tag`.
-- A mapping key is a collection or otherwise unhashable; wrapping makes
-  it hashable while preserving any tag.
+- A mapping key is a collection or otherwise unhashable; wrapping in `Yaml()` makes
+  it hashable.
+
+```python
+from yaml12 import Yaml, format_yaml, parse_yaml
+
+mapping = {Yaml("tagged-key", "!k"): "v"}
+assert parse_yaml(format_yaml(mapping)) == mapping
+```
 
 See the advanced guide for details.
 
