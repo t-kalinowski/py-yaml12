@@ -282,53 +282,6 @@ def test_parse_yaml_rejects_file_like_objects(tmp_path: Path):
         yaml12.parse_yaml(fh)
 
 
-class _ChunkReader:
-    def __init__(self, path: Path, chunk_size: int = 7):
-        self.f = path.open("r", encoding="utf-8")
-        self.chunk_size = chunk_size
-
-    def read(self, size: int = -1) -> str:
-        chunk_size = self.chunk_size if size < 0 else size
-        return self.f.read(chunk_size)
-
-    def close(self):
-        self.f.close()
-
-
-class _ChunkBytesReader:
-    def __init__(self, path: Path, chunk_size: int = 5):
-        self.f = path.open("rb")
-        self.chunk_size = chunk_size
-
-    def read(self, size: int = -1) -> bytes:
-        chunk_size = self.chunk_size if size < 0 else size
-        return self.f.read(chunk_size)
-
-    def close(self):
-        self.f.close()
-
-
-class _ErroringReader:
-    def read(self, size: int = -1):  # noqa: ARG002
-        raise RuntimeError("boom stream")
-
-
-class _BadTypeReader:
-    def read(self, size: int = -1):  # noqa: ARG002
-        return 123  # not bytes/str
-
-
-class _ErroringReaderAfterFirst:
-    def __init__(self):
-        self.calls = 0
-
-    def read(self, size: int = -1):  # noqa: ARG002
-        self.calls += 1
-        if self.calls == 1:
-            return "---\nfoo: 1\n"
-        raise RuntimeError("boom later")
-
-
 def test_parse_numeric_sequences_keep_types():
     yaml = "[1, 2.5, 0x10, .inf, null]"
 

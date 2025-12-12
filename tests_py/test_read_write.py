@@ -3,18 +3,20 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 import io
-import threading
 
 import pytest
 
 import yaml12
-from tests_py.test_format_parse import (
-    _BadTypeReader,
-    _ChunkBytesReader,
-    _ChunkReader,
-    _ErroringReader,
-    _ErroringReaderAfterFirst,
-)
+
+
+class _ErroringReader:
+    def read(self, size: int = -1):  # noqa: ARG002
+        raise RuntimeError("boom stream")
+
+
+class _BadTypeReader:
+    def read(self, size: int = -1):  # noqa: ARG002
+        return 123  # not bytes/str
 
 
 def test_write_and_read_single_document(tmp_path: Path):
@@ -116,34 +118,21 @@ def test_read_yaml_accepts_bytes_connection_and_validates_utf8():
         yaml12.read_yaml(bad)
 
 
-def test_read_yaml_streaming_chunks_str(tmp_path: Path):
-    items = list(range(1200))
-    yaml_text = "".join(f"- {i}\n" for i in items)
-    path = tmp_path / "chunks-str.yaml"
-    path.write_text(yaml_text, encoding="utf-8")
-    reader = _ChunkReader(path, chunk_size=4)
-    try:
-        parsed = yaml12.read_yaml(reader)
-        assert parsed == items
-    finally:
-        reader.close()
-
-
-def test_read_yaml_streaming_chunks_bytes(tmp_path: Path):
-    yaml_text = "alpha: 1\nbeta: true\ngamma: [1, 2, 3]\n"
-    path = tmp_path / "chunks-bytes.yaml"
-    path.write_bytes(yaml_text.encode("utf-8"))
-    reader = _ChunkBytesReader(path, chunk_size=3)
-    try:
-        parsed = yaml12.read_yaml(reader)
-        assert parsed == {"alpha": 1, "beta": True, "gamma": [1, 2, 3]}
-    finally:
-        reader.close()
-
-
-def test_read_yaml_streaming_read_error_propagates():
+def test_read_yaml_read_error_propagates():
     with pytest.raises(RuntimeError, match="boom stream"):
         yaml12.read_yaml(_ErroringReader())
+
+
+def test_read_yaml_read_fallback_to_size_arg():
+    class RequiresSize:
+        def __init__(self, text: str):
+            self.text = text
+
+        def read(self, size: int) -> str:  # noqa: ARG002
+            return self.text
+
+    reader = RequiresSize("foo: 1\nbar: true\n")
+    assert yaml12.read_yaml(reader) == {"foo": 1, "bar": True}
 
 
 def test_read_yaml_connection_empty_respects_multi_flag():
@@ -153,100 +142,9 @@ def test_read_yaml_connection_empty_respects_multi_flag():
     assert yaml12.read_yaml(buf_multi, multi=True) == []
 
 
-def test_read_yaml_streaming_chunk_size_one(tmp_path: Path):
-    items = list(range(5000))
-    yaml_text = "".join(f"- {i}\n" for i in items)
-    path = tmp_path / "chunks-str-one.yaml"
-    path.write_text(yaml_text, encoding="utf-8")
-    reader = _ChunkReader(path, chunk_size=1)
-    try:
-        parsed = yaml12.read_yaml(reader)
-        assert parsed == items
-    finally:
-        reader.close()
-
-
-def test_read_yaml_streaming_multi_documents(tmp_path: Path):
-    yaml_text = "---\nfoo: 1\n---\nbar: [1, 2, 3]\n"
-    path = tmp_path / "chunks-multi.yaml"
-    path.write_text(yaml_text, encoding="utf-8")
-    reader = _ChunkReader(path, chunk_size=2)
-    try:
-        parsed = yaml12.read_yaml(reader, multi=True)
-        assert parsed == [{"foo": 1}, {"bar": [1, 2, 3]}]
-    finally:
-        reader.close()
-
-
 def test_read_yaml_streaming_bad_type_error():
     with pytest.raises(TypeError, match="str or bytes"):
         yaml12.read_yaml(_BadTypeReader())
-
-
-def test_read_yaml_streaming_midway_error():
-    with pytest.raises(RuntimeError, match="boom later"):
-        yaml12.read_yaml(_ErroringReaderAfterFirst(), multi=True)
-
-
-class _AlternatingChunkReader:
-    def __init__(self, text: str, chunk_size: int = 1, start_with_bytes: bool = False):
-        self.data = text.encode("utf-8")
-        self.chunk_size = chunk_size
-        self.pos = 0
-        self.return_bytes = start_with_bytes
-
-    def read(self, size: int = -1):
-        if self.pos >= len(self.data):
-            return b"" if self.return_bytes else ""
-        end = min(len(self.data), self.pos + (self.chunk_size if size < 0 else size))
-        chunk = self.data[self.pos : end]
-        self.pos = end
-        result = chunk if self.return_bytes else chunk.decode("utf-8")
-        self.return_bytes = not self.return_bytes
-        return result
-
-
-def test_read_yaml_streaming_alternating_stress():
-    items = list(range(2000))
-    yaml_text = "".join(f"- {i}\n" for i in items)
-
-    for start_with_bytes in (False, True):
-        reader = _AlternatingChunkReader(
-            yaml_text, chunk_size=1, start_with_bytes=start_with_bytes
-        )
-        parsed = yaml12.read_yaml(reader)
-        assert parsed == items
-        # repeat with different chunking to stress unsafe lifetime cast
-        reader = _AlternatingChunkReader(
-            yaml_text, chunk_size=3, start_with_bytes=start_with_bytes
-        )
-        parsed = yaml12.read_yaml(reader)
-        assert parsed == items
-
-
-def test_read_yaml_streaming_alternating_stress_threads():
-    items = list(range(1000))
-    yaml_text = "".join(f"- {i}\n" for i in items)
-
-    def worker(start_with_bytes: bool):
-        for chunk_size in (1, 2, 4):
-            reader = _AlternatingChunkReader(
-                yaml_text, chunk_size=chunk_size, start_with_bytes=start_with_bytes
-            )
-            parsed = yaml12.read_yaml(reader)
-            assert parsed == items
-
-    threads = [
-        threading.Thread(target=worker, args=(False,)),
-        threading.Thread(target=worker, args=(True,)),
-        threading.Thread(target=worker, args=(False,)),
-        threading.Thread(target=worker, args=(True,)),
-    ]
-
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
 
 
 def test_read_yaml_accepts_pathlike(tmp_path: Path):
