@@ -217,7 +217,7 @@ def test_parse_yaml_sequences_and_mappings():
 
     assert yaml12.parse_yaml(simple_seq) == ["a", "b", "c"]
     assert yaml12.parse_yaml(mapping_text) == {"foo": 1, "bar": "baz"}
-    assert yaml12.parse_yaml(["foo: 1", "bar: 2"]) == {"foo": 1, "bar": 2}
+    assert yaml12.parse_yaml(["foo: 1\n", "bar: 2"]) == {"foo": 1, "bar": 2}
 
     with pytest.raises(TypeError, match="must contain only strings"):
         yaml12.parse_yaml(["foo: 1", None])
@@ -274,18 +274,38 @@ def test_parse_yaml_errors_on_none_inputs():
 def test_parse_yaml_rejects_file_like_objects(tmp_path: Path):
     path = tmp_path / "parse-no-conn.yaml"
     path.write_text("foo: 1\n", encoding="utf-8")
-    with (
-        path.open("r", encoding="utf-8") as fh,
-        pytest.raises(
-            TypeError,
-            match="`text` must be a string or an iterable of strings",
-        ),
-    ):
-        yaml12.parse_yaml(fh)
+    with path.open("r", encoding="utf-8") as fh:
+        assert yaml12.parse_yaml(fh) == {"foo": 1}
+
+
+def test_parse_yaml_accepts_iterable_with_read_method_and_transform():
+    class TransformingLineSource:
+        def __init__(self, lines: list[str]):
+            self._lines = lines
+
+        def read(self, size: int = -1) -> str:  # noqa: ARG002
+            raise RuntimeError("parse_yaml should not call read()")
+
+        def __iter__(self):
+            prefix = "#| "
+            for line in self._lines:
+                if not line.startswith(prefix):
+                    break
+                yield line.removeprefix(prefix)
+
+    src = TransformingLineSource(
+        [
+            "#| foo: 1\n",
+            "#| bar: true\n",
+            "not yaml anymore\n",
+            "#| ignored: 99\n",
+        ]
+    )
+    assert yaml12.parse_yaml(src) == {"foo": 1, "bar": True}
 
 
 def test_parse_yaml_accepts_iterable_lines():
-    it = iter(["foo: 1", "bar: true"])
+    it = iter(["foo: 1\n", "bar: true"])
     assert yaml12.parse_yaml(it) == {"foo": 1, "bar": True}
 
 
@@ -294,8 +314,8 @@ def test_parse_yaml_accepts_generator_lines_with_prefix_stripping():
 
     prefix = "#| "
     lines = [
-        "#| foo: 1",
-        "#| bar: true",
+        "#| foo: 1\n",
+        "#| bar: true\n",
         "not yaml anymore",
         "#| ignored: 99",
     ]

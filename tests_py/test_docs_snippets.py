@@ -256,7 +256,7 @@ def test_reference_examples_behave():
         "---",
         "# Body that is not YAML",
     ]
-    assert yaml12.parse_yaml(lines) == {
+    assert yaml12.parse_yaml("\n".join(lines)) == {
         "title": "Front matter only",
         "params": {"answer": 42},
     }

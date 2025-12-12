@@ -193,7 +193,8 @@ fn split_tag_name(name: &str) -> Option<(&str, &str)> {
 /// Parse YAML text into Python values.
 ///
 /// Args:
-///     text (str | Iterable[str]): YAML text or an iterable of text lines to be joined with `"\n"`.
+///     text (str | Iterable[str]): YAML text, or an iterable yielding text chunks.
+///         Chunks are concatenated exactly as provided (no implicit separators are inserted).
 ///     multi (bool): Return a list of documents when true; otherwise a single document or None for empty input.
 ///     handlers (dict[str, Callable] | None): Optional tag handlers for values and keys; matching handlers receive the parsed value.
 ///
@@ -260,17 +261,9 @@ fn parse_yaml(
             total_bytes = total_bytes.saturating_add(slice.len());
             slices.push(slice);
         }
-        total_bytes = total_bytes.saturating_add(lines.len().saturating_sub(1));
         let release_gil = should_release_gil_for_parse(total_bytes);
         let docs = load_yaml_documents_slices(py, &slices, multi, release_gil)?;
         return docs_to_python(py, docs, multi, handlers);
-    }
-
-    // Preserve the contract that file-like objects are handled by `read_yaml`, not `parse_yaml`.
-    if bound.getattr("read").is_ok() {
-        return Err(PyTypeError::new_err(
-            "`text` must be a string or an iterable of strings",
-        ));
     }
 
     if bound.is_instance_of::<PyDict>() {
@@ -313,7 +306,6 @@ fn parse_yaml(
             total_bytes = total_bytes.saturating_add(slice.len());
             slices.push(slice);
         }
-        total_bytes = total_bytes.saturating_add(lines.len().saturating_sub(1));
         let release_gil = should_release_gil_for_parse(total_bytes);
         let docs = load_yaml_documents_slices(py, &slices, multi, release_gil)?;
         return docs_to_python(py, docs, multi, handlers);
@@ -526,8 +518,15 @@ fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
             })?;
             lines.push(s.unbind());
         }
-        let iter = JoinedLinesIter::new(py, &lines);
-        let docs = load_yaml_documents_iter(iter, true)?;
+        let mut slices: Vec<&str> = Vec::with_capacity(lines.len());
+        let mut total_bytes: usize = 0;
+        for line in &lines {
+            let slice = line.bind(py).to_str()?;
+            total_bytes = total_bytes.saturating_add(slice.len());
+            slices.push(slice);
+        }
+        let release_gil = should_release_gil_for_parse(total_bytes);
+        let docs = load_yaml_documents_slices(py, &slices, true, release_gil)?;
         println!("{docs:#?}");
         return Ok(());
     }
@@ -646,15 +645,16 @@ impl<'a> Iterator for JoinedStrSlicesIter<'a> {
         if !self.has_current {
             return None;
         }
-        if let Some(ch) = self.current.next() {
-            return Some(ch);
+        loop {
+            if let Some(ch) = self.current.next() {
+                return Some(ch);
+            }
+            if self.next_slice >= self.slices.len() {
+                self.has_current = false;
+                return None;
+            }
+            self.advance_slice();
         }
-        if self.next_slice >= self.slices.len() {
-            self.has_current = false;
-            return None;
-        }
-        self.advance_slice();
-        Some('\n')
     }
 }
 
@@ -1110,62 +1110,6 @@ impl<'py> Iterator for PyReadIter<'py> {
 impl<'py> PyReadIter<'py> {
     fn take_error(&self) -> Option<PyErr> {
         self.error.borrow_mut().take()
-    }
-}
-
-struct JoinedLinesIter<'py, 'a: 'py> {
-    py: Python<'py>,
-    lines: &'a [Py<PyString>],
-    next_line: usize,
-    current: std::str::Chars<'py>,
-    has_current: bool,
-}
-
-impl<'py, 'a: 'py> JoinedLinesIter<'py, 'a> {
-    fn new(py: Python<'py>, lines: &'a [Py<PyString>]) -> Self {
-        let mut iter = Self {
-            py,
-            lines,
-            next_line: 0,
-            current: "".chars(),
-            has_current: false,
-        };
-        iter.advance_line();
-        iter
-    }
-
-    fn advance_line(&mut self) {
-        if self.next_line >= self.lines.len() {
-            self.has_current = false;
-            self.current = "".chars();
-            return;
-        }
-        let line = self.lines[self.next_line].bind(self.py);
-        self.next_line += 1;
-        self.current = line
-            .to_str()
-            .expect("PyString should contain valid UTF-8")
-            .chars();
-        self.has_current = true;
-    }
-}
-
-impl<'py, 'a> Iterator for JoinedLinesIter<'py, 'a> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.has_current {
-            return None;
-        }
-        if let Some(ch) = self.current.next() {
-            return Some(ch);
-        }
-        if self.next_line >= self.lines.len() {
-            self.has_current = false;
-            return None;
-        }
-        self.advance_line();
-        Some('\n')
     }
 }
 
