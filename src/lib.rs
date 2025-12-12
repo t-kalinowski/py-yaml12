@@ -644,66 +644,13 @@ fn load_yaml_documents<'py, 'input>(
     Ok(loader.into_documents())
 }
 
-struct JoinedStrSlicesIter<'a> {
-    slices: &'a [&'a str],
-    next_slice: usize,
-    current: std::str::Chars<'a>,
-    has_current: bool,
-}
-
-impl<'a> JoinedStrSlicesIter<'a> {
-    fn new(slices: &'a [&'a str]) -> Self {
-        let mut iter = Self {
-            slices,
-            next_slice: 0,
-            current: "".chars(),
-            has_current: false,
-        };
-        iter.advance_slice();
-        iter
-    }
-
-    fn advance_slice(&mut self) {
-        if self.next_slice >= self.slices.len() {
-            self.has_current = false;
-            self.current = "".chars();
-            return;
-        }
-        let slice = self.slices[self.next_slice];
-        self.next_slice += 1;
-        self.current = slice.chars();
-        self.has_current = true;
-    }
-}
-
-impl<'a> Iterator for JoinedStrSlicesIter<'a> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.has_current {
-            return None;
-        }
-        loop {
-            if let Some(ch) = self.current.next() {
-                return Some(ch);
-            }
-            if self.next_slice >= self.slices.len() {
-                self.has_current = false;
-                return None;
-            }
-            self.advance_slice();
-        }
-    }
-}
-
 fn load_yaml_documents_slices<'py, 'input>(
     py: Python<'py>,
     slices: &'input [&'input str],
     multi: bool,
     release_gil: bool,
 ) -> Result<Vec<Yaml<'input>>> {
-    let iter = JoinedStrSlicesIter::new(slices);
-    let mut parser = Parser::new_from_iter(iter);
+    let mut parser = Parser::new_from_iter(slices.iter().flat_map(|s| s.chars()));
     let mut loader = saphyr::YamlLoader::default();
     loader.early_parse(false);
     let mut load = || parser.load(&mut loader, multi);
