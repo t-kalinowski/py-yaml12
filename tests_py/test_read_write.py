@@ -3,6 +3,8 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 import io
+import contextlib
+import sys
 
 import pytest
 
@@ -45,6 +47,144 @@ def test_write_yaml_defaults_to_stdout_when_path_is_none(
 
     assert output == expected
     assert yaml12.parse_yaml(output) == value
+
+
+def test_write_yaml_respects_python_stdout_redirect():
+    value = {"alpha": 1, "nested": [True, None]}
+    encoded = yaml12.format_yaml(value)
+    expected = f"---\n{encoded}\n...\n"
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        yaml12.write_yaml(value, path=None)
+
+    assert buf.getvalue() == expected
+
+
+def test_write_yaml_stdout_type_error_falls_back_to_real_stdout(
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    class BadStdout:
+        def write(self, payload):  # noqa: ARG002
+            raise TypeError("malformed stdout")
+
+    monkeypatch.setattr(sys, "stdout", BadStdout())
+
+    value = {"alpha": 1, "nested": [True, None]}
+    encoded = yaml12.format_yaml(value)
+    expected = f"---\n{encoded}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    output = capfd.readouterr().out
+    assert output == expected
+
+
+def test_write_yaml_stdout_malformed_falls_back_to_real_stdout(
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    class BadStdout:
+        def write(self, payload):  # noqa: ARG002
+            raise RuntimeError("boom write")
+
+        def flush(self):
+            raise RuntimeError("boom flush")
+
+    monkeypatch.setattr(sys, "stdout", BadStdout())
+
+    value = {"alpha": 1, "nested": [True, None]}
+    encoded = yaml12.format_yaml(value)
+    expected = f"---\n{encoded}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    output = capfd.readouterr().out
+    assert output == expected
+
+
+def test_write_yaml_stdout_none_falls_back_to_real_stdout(
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(sys, "stdout", None)
+
+    value = {"alpha": 1}
+    encoded = yaml12.format_yaml(value)
+    expected = f"---\n{encoded}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    output = capfd.readouterr().out
+    assert output == expected
+
+
+def test_write_yaml_stdout_missing_falls_back_to_real_stdout(
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    # Remove sys.stdout entirely so PySys_GetObject returns NULL.
+    monkeypatch.delattr(sys, "stdout", raising=False)
+
+    value = {"alpha": 1}
+    encoded = yaml12.format_yaml(value)
+    expected = f"---\n{encoded}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    output = capfd.readouterr().out
+    assert output == expected
+
+
+def test_write_yaml_stdout_without_flush_writes_to_stdout(monkeypatch: pytest.MonkeyPatch):
+    class NoFlush:
+        def __init__(self):
+            self.parts: list[str] = []
+
+        def write(self, payload: str):
+            self.parts.append(payload)
+
+    sink = NoFlush()
+    monkeypatch.setattr(sys, "stdout", sink)
+
+    value = {"alpha": 1}
+    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    assert "".join(sink.parts) == expected
+
+
+def test_write_yaml_stdout_flush_none_is_ignored(monkeypatch: pytest.MonkeyPatch):
+    class FlushNone:
+        def __init__(self):
+            self.parts: list[str] = []
+            self.flush = None
+
+        def write(self, payload: str):
+            self.parts.append(payload)
+
+    sink = FlushNone()
+    monkeypatch.setattr(sys, "stdout", sink)
+
+    value = {"alpha": 1}
+    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    assert "".join(sink.parts) == expected
+
+
+def test_write_yaml_stdout_flush_error_is_ignored(monkeypatch: pytest.MonkeyPatch):
+    class FlushError:
+        def __init__(self):
+            self.parts: list[str] = []
+
+        def write(self, payload: str):
+            self.parts.append(payload)
+
+        def flush(self):
+            raise RuntimeError("boom flush")
+
+    sink = FlushError()
+    monkeypatch.setattr(sys, "stdout", sink)
+
+    value = {"alpha": 1}
+    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+
+    yaml12.write_yaml(value, path=None)
+    assert "".join(sink.parts) == expected
 
 
 def test_write_and_read_multi_document_streams(tmp_path: Path):

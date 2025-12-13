@@ -1,4 +1,5 @@
 use pyo3::exceptions::{PyAttributeError, PyIOError, PyTypeError, PyValueError};
+use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::sync::GILOnceCell;
 use pyo3::types::{
@@ -964,6 +965,33 @@ fn format_yaml_impl(py: Python<'_>, value: &Yaml<'static>, multi: bool) -> Resul
 }
 
 fn write_to_stdout(py: Python<'_>, content: &str) -> Result<()> {
+    let ptr = unsafe { ffi::PySys_GetObject(c"stdout".as_ptr()) };
+    if ptr.is_null() {
+        return write_to_stdout_fallback(py, content);
+    }
+
+    let stdout = unsafe { Bound::from_borrowed_ptr(py, ptr) };
+    if stdout.is_none() {
+        return write_to_stdout_fallback(py, content);
+    }
+
+    if stdout.call_method1("write", (content,)).is_err() {
+        // If sys.stdout is malformed, fall back to the real stdout and
+        // suppress the Python-level exception.
+        return write_to_stdout_fallback(py, content);
+    }
+
+    // Best-effort flush; never raise for malformed stdout.
+    if let Ok(flush) = stdout.getattr("flush") {
+        if !flush.is_none() {
+            let _ = flush.call0();
+        }
+    }
+
+    Ok(())
+}
+
+fn write_to_stdout_fallback(py: Python<'_>, content: &str) -> Result<()> {
     py.allow_threads(|| {
         let mut stdout = io::stdout();
         stdout.write_all(content.as_bytes())?;
