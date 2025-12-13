@@ -5,9 +5,20 @@ import sys
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from os import PathLike
-from typing import Any, Literal, Protocol, TypeVar, overload
+from typing import Any, Literal, Protocol, TypeAlias, overload
 
 __all__: list[str]
+
+_YamlScalar: TypeAlias = None | bool | int | float | str
+_YamlKey: TypeAlias = _YamlScalar | "Yaml"
+_YamlOutput: TypeAlias = _YamlScalar | "Yaml" | list["_YamlOutput"] | dict[_YamlKey, "_YamlOutput"]
+
+class _Readable(Protocol):
+    def read(self, size: int = ..., /) -> str | bytes: ...
+
+class _Writable(Protocol):
+    def write(self, data: str, /) -> int | None: ...
+
 
 @dataclass(frozen=True)
 class Yaml:
@@ -27,72 +38,107 @@ class Yaml:
 def parse_yaml(
     text: str | Iterable[str],
     multi: Literal[False] = False,
-    handlers: Mapping[str, Callable[[Any], Any]] | None = None,
-) -> Any: ...
+    handlers: None = None,
+) -> _YamlOutput: ...
+
+
+@overload
+def parse_yaml(text: str | Iterable[str], multi: Literal[True], handlers: None = None) -> list[_YamlOutput]: ...
 
 
 @overload
 def parse_yaml(
     text: str | Iterable[str],
     multi: Literal[True],
-    handlers: Mapping[str, Callable[[Any], Any]] | None = None,
+    handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
 ) -> list[Any]: ...
+
+@overload
+def parse_yaml(
+    text: str | Iterable[str],
+    multi: bool = False,
+    handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
+) -> Any: ...
+
 
 if sys.version_info >= (3, 14):
     @overload
     def read_yaml(
-        path: str | PathLike[str] | io.Reader[str] | io.Reader[bytes],
+        path: str | PathLike[str] | _Readable | io.Reader[str] | io.Reader[bytes],
         multi: Literal[False] = False,
-        handlers: Mapping[str, Callable[[Any], Any]] | None = None,
-    ) -> Any: ...
+        handlers: None = None,
+    ) -> _YamlOutput: ...
 
     @overload
     def read_yaml(
-        path: str | PathLike[str] | io.Reader[str] | io.Reader[bytes],
+        path: str | PathLike[str] | _Readable | io.Reader[str] | io.Reader[bytes],
         multi: Literal[True],
-        handlers: Mapping[str, Callable[[Any], Any]] | None = None,
+        handlers: None = None,
+    ) -> list[_YamlOutput]: ...
+
+    @overload
+    def read_yaml(
+        path: str | PathLike[str] | _Readable | io.Reader[str] | io.Reader[bytes],
+        multi: Literal[True],
+        handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
     ) -> list[Any]: ...
 
-    def _dbg_yaml(text: str | Iterable[str] | io.Reader[str] | io.Reader[bytes]) -> None: ...
+    @overload
+    def read_yaml(
+        path: str | PathLike[str] | _Readable | io.Reader[str] | io.Reader[bytes],
+        multi: bool = False,
+        handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
+    ) -> Any: ...
+
+    def _dbg_yaml(
+        text: str | Iterable[str] | _Readable | io.Reader[str] | io.Reader[bytes],
+    ) -> None: ...
 
     def write_yaml(
         value: Any,
-        path: str | PathLike[str] | io.Writer[str] | None = None,
+        path: str | PathLike[str] | _Writable | io.Writer[str] | None = None,
         multi: bool = False,
     ) -> None: ...
 else:
-    _T_co = TypeVar("_T_co", covariant=True)
-
-    class _Reader(Protocol[_T_co]):
-        def read(self, size: int = ..., /) -> _T_co: ...
-
-    class _Writer(Protocol):
-        def write(self, data: str, /) -> int: ...
-
     @overload
     def read_yaml(
-        path: str | PathLike[str] | _Reader[str] | _Reader[bytes],
+        path: str | PathLike[str] | _Readable,
         multi: Literal[False] = False,
-        handlers: Mapping[str, Callable[[Any], Any]] | None = None,
-    ) -> Any: ...
+        handlers: None = None,
+    ) -> _YamlOutput: ...
 
     @overload
     def read_yaml(
-        path: str | PathLike[str] | _Reader[str] | _Reader[bytes],
+        path: str | PathLike[str] | _Readable,
         multi: Literal[True],
-        handlers: Mapping[str, Callable[[Any], Any]] | None = None,
+        handlers: None = None,
+    ) -> list[_YamlOutput]: ...
+
+    @overload
+    def read_yaml(
+        path: str | PathLike[str] | _Readable,
+        multi: Literal[True],
+        handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
     ) -> list[Any]: ...
 
-    def _dbg_yaml(text: str | Iterable[str] | _Reader[str] | _Reader[bytes]) -> None: ...
+    @overload
+    def read_yaml(
+        path: str | PathLike[str] | _Readable,
+        multi: bool = False,
+        handlers: Mapping[str, Callable[[Any], Any]] | None = ...,
+    ) -> Any: ...
+
+    def _dbg_yaml(text: str | Iterable[str] | _Readable) -> None: ...
 
     def write_yaml(
         value: Any,
-        path: str | PathLike[str] | _Writer | None = None,
+        path: str | PathLike[str] | _Writable | None = None,
         multi: bool = False,
     ) -> None: ...
 
-
 def format_yaml(value: Any, multi: bool = False) -> str: ...
+
+
 
 
 __version__: str
