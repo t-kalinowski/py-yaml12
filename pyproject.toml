@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Typing :: Typed",
     "Topic :: Software Development :: Libraries",
     "Topic :: Text Processing :: Markup",
 ]
