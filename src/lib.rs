@@ -1,5 +1,4 @@
 use pyo3::exceptions::{PyAttributeError, PyIOError, PyTypeError, PyValueError};
-use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::sync::GILOnceCell;
 use pyo3::types::{
@@ -964,14 +963,13 @@ fn format_yaml_impl(py: Python<'_>, value: &Yaml<'static>, multi: bool) -> Resul
     }
 }
 
-fn write_to_stdout(content: &str) -> Result<()> {
-    let mut stdout = io::stdout();
-    stdout
-        .write_all(content.as_bytes())
-        .map_err(|err| PyIOError::new_err(format!("failed to write to stdout: {err}")))?;
-    stdout
-        .flush()
-        .map_err(|err| PyIOError::new_err(format!("failed to flush stdout: {err}")))
+fn write_to_stdout(py: Python<'_>, content: &str) -> Result<()> {
+    py.allow_threads(|| {
+        let mut stdout = io::stdout();
+        stdout.write_all(content.as_bytes())?;
+        stdout.flush()
+    })
+    .map_err(|err| PyIOError::new_err(format!("failed to write to stdout: {err}")))
 }
 
 #[allow(clippy::only_used_in_recursion)]
