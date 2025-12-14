@@ -142,16 +142,17 @@ assert round_tripped == obj
 
 Online docs: https://posit-dev.github.io/py-yaml12/
 
-- Guides: `docs/usage.md` (basics) and `docs/tags.md` (advanced tags,
-  anchors, streams).
+- Guides: `user_guide/`.
 - Reference: `docs/reference/`.
-- API overview: `docs/api.md`.
 
 To build or serve the docs locally:
 
 ```bash
-.venv/bin/mkdocs build        # or: .venv/bin/mkdocs serve
+.venv/bin/great-docs build        # or: .venv/bin/great-docs preview
 ```
+
+Docs include executable Python chunks; Quarto is configured to use the project `.venv` via `docs/_environment`
+(ensure the venv has Jupyter deps, e.g. `make venv`).
 
 ## Tests
 

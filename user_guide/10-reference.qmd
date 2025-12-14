@@ -1,0 +1,7 @@
+---
+title: "Reference"
+guide-section: "Reference"
+---
+
+- [parse_yaml()](../reference/parse_yaml.qmd) and [read_yaml()](../reference/read_yaml.qmd)
+- [format_yaml()](../reference/format_yaml.qmd) and [write_yaml()](../reference/write_yaml.qmd)

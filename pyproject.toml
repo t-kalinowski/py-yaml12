@@ -38,3 +38,18 @@ Issues = "https://github.com/posit-dev/py-yaml12/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+
+[tool.great-docs]
+# Great Docs uses static analysis; for this Rust-backed package, disable source links
+# (they would typically point at stubs, not the Rust implementation).
+
+[tool.great-docs.source]
+enabled = false
+
+[[tool.great-docs.authors]]
+name = "Tomasz Kalinowski"
+role = "Author, maintainer"
+
+[[tool.great-docs.authors]]
+name = "Posit Software, PBC"
+role = "Copyright holder, funder"

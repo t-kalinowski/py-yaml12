@@ -7,7 +7,7 @@ PIP := $(VENV)/bin/pip
 venv:
 	@test -d $(VENV) || python3 -m venv $(VENV)
 	$(PIP) install -U pip
-	$(PIP) install maturin pytest mkdocs
+	$(PIP) install maturin pytest great-docs quartodoc jupyter
 
 develop: venv
 	$(VENV)/bin/maturin develop --locked
@@ -16,10 +16,10 @@ test: develop
 	$(PY) -m pytest tests_py
 
 docs: venv
-	$(PY) -m mkdocs build
+	$(VENV)/bin/great-docs build
 
 docs-serve: venv
-	$(PY) -m mkdocs serve
+	$(VENV)/bin/great-docs preview
 
 clean:
 	rm -rf $(VENV)

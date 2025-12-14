@@ -51,6 +51,12 @@ def parse_yaml(
     handlers: Mapping[str, Callable[[Any], Any]] | None = None,
 ) -> Any: ...
 
+def parse_yaml(  # type: ignore[misc]
+    text: str | Iterable[str],
+    multi: bool = False,
+    handlers: Mapping[str, Callable[[Any], Any]] | None = None,
+) -> Any: ...
+
 @overload
 def read_yaml(
     path: str | PathLike[str] | _Readable,
@@ -69,6 +75,12 @@ def read_yaml(
 
 @overload
 def read_yaml(
+    path: str | PathLike[str] | _Readable,
+    multi: bool = False,
+    handlers: Mapping[str, Callable[[Any], Any]] | None = None,
+) -> Any: ...
+
+def read_yaml(  # type: ignore[misc]
     path: str | PathLike[str] | _Readable,
     multi: bool = False,
     handlers: Mapping[str, Callable[[Any], Any]] | None = None,

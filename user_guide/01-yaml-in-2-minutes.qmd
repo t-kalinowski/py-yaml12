@@ -1,7 +1,33 @@
-# YAML in 2 Minutes: A Gentle Introduction for Python Users
+---
+title: "YAML in 2 Minutes"
+guide-section: "Getting Started"
+---
 
-```python
+```{python}
+import textwrap
+
 from yaml12 import parse_yaml
+
+first_example_text = textwrap.dedent(
+    """\
+    title: A Modern YAML parser written in Rust
+    properties: [correct, safe, fast, simple]
+    score: 9.5
+    categories:
+      - yaml
+      - python
+      - example
+    settings:
+      note: >
+        This is a folded block
+        that turns line breaks
+        into spaces.
+      note_literal: |
+        This is a literal block
+        that keeps
+        line breaks.
+    """
+)
 ```
 
 Here’s a short introduction to YAML for Python users. YAML is a data
@@ -39,7 +65,7 @@ settings:
 
 Let’s parse that with `yaml12`:
 
-```python
+```{python}
 doc = parse_yaml(first_example_text)
 
 assert doc == {
@@ -106,7 +132,7 @@ one space past the dash:
 
 parses to:
 
-```python
+```{python}
 [
     {"name": "cat", "toys": ["string", "box"]},
     {"name": "dog", "toys": ["ball", "bone"]},
@@ -234,8 +260,32 @@ doc:
 
 Python result (`parse_yaml()` with defaults):
 
-```python
-{
+```{python}
+end_to_end_text = textwrap.dedent(
+    """\
+    doc:
+      pets:
+        - cat
+        - dog
+      numbers: [1, 2.5, 0x10, .inf, null]
+      integers: [1, 2, 3, 0x10, null]
+      flags: {enabled: true, label: on}
+      literal: |
+        hello
+        world
+      folded: >
+        hello
+        world
+      quoted:
+        - "line\\nbreak"
+        - 'quote: ''here'''
+      plain: [yes, no]
+      mixed: [won't simplify, 123, true]
+    """
+)
+
+parsed = parse_yaml(end_to_end_text)
+assert parsed == {
     "doc": {
         "pets": ["cat", "dog"],
         "numbers": [1, 2.5, 16, float("inf"), None],

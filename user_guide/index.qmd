@@ -1,0 +1,12 @@
+---
+title: "User Guide"
+guide-section: "Getting Started"
+---
+
+This guide contains narrative documentation for `yaml12`.
+
+- [YAML in 2 Minutes](01-yaml-in-2-minutes.qmd)
+- [Tags, Anchors, and Advanced YAML](02-tags-anchors-and-advanced-yaml.qmd)
+- [Reference](10-reference.qmd)
+- [Authors and Citation](90-authors-and-citation.qmd)
+- [Contributing](91-contributing.qmd)

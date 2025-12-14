@@ -1,0 +1,19 @@
+---
+title: "Contributing"
+guide-section: "About"
+---
+
+## Build or serve the docs locally
+
+This project uses `great-docs` (Quarto) for documentation.
+Quarto executes Python chunks using the project `.venv` (configured in `docs/_environment`).
+
+From the project root:
+
+```bash
+# Build docs into docs/_site/
+.venv/bin/great-docs build
+
+# Serve with live reload
+.venv/bin/great-docs preview
+```
