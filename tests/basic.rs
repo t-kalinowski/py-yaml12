@@ -26,7 +26,7 @@ fn parse_simple_mapping() -> PyResult<()> {
             .expect("bar key should be present")
             .extract::<bool>()?;
         assert_eq!(foo, 1);
-        assert_eq!(bar, true);
+        assert!(bar);
         Ok(())
     })
 }
@@ -39,7 +39,7 @@ fn roundtrip_multi_documents() -> PyResult<()> {
         let format_yaml = module.getattr("format_yaml")?;
         let parse_yaml = module.getattr("parse_yaml")?;
 
-        let docs = PyList::new(py, &["first", "second"])?;
+        let docs = PyList::new(py, ["first", "second"])?;
         let yaml = format_yaml.call1((docs, true))?.extract::<String>()?;
         assert!(
             yaml.starts_with("---"),
