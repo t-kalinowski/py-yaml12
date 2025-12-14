@@ -9,6 +9,7 @@
 - Avoid ad-hoc local installs like `local-py`; stick to `maturin develop --locked` in `.venv` or an existing project venv.
 - If `maturin develop` is blocked by sandboxed networking or permissions for git dependencies, request elevated permissions.
 - Always run the tests yourself and report results; do not tell the user to run them.
+- When opening PRs, do not include a "Testing" section in the PR description; assume CI will run the project's test checks.
 - Use the existing `saphyr`/`saphyr-parser` git dependencies; do not change crate sources or pins without approval.
 - For Python bindings, preserve the exposed API (`parse_yaml`, `read_yaml`, `format_yaml`, `write_yaml`) and the `Tagged` dataclass contract. Tagged values wrap non-core tags only; canonical/core tags are treated as untagged.
 - Keep conversions zero-copy where practical and prefer borrowing (`&str`, slices) over allocating new `String`s when possible.
