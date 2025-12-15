@@ -15,8 +15,8 @@ fn init_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
     let yaml_cls = match builtins.getattr("_yaml12_test_yaml_cls") {
         Ok(cls) if !cls.is_none() => cls,
         _ => {
-    let helpers = CString::new(
-        r#"
+            let helpers = CString::new(
+                r#"
 from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
 
@@ -51,14 +51,14 @@ class Yaml:
             return NotImplemented
         return self._frozen == other._frozen
         "#,
-    )
-    .expect("helpers must not contain null bytes");
+            )
+            .expect("helpers must not contain null bytes");
 
-    let locals = PyDict::new(py);
-    py.run(helpers.as_c_str(), Some(&locals), Some(&locals))?;
-    let yaml_cls = locals
-        .get_item("Yaml")?
-        .expect("Yaml class should be defined");
+            let locals = PyDict::new(py);
+            py.run(helpers.as_c_str(), Some(&locals), Some(&locals))?;
+            let yaml_cls = locals
+                .get_item("Yaml")?
+                .expect("Yaml class should be defined");
             builtins.setattr("_yaml12_test_yaml_cls", &yaml_cls)?;
             yaml_cls
         }
