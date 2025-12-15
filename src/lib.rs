@@ -1,7 +1,7 @@
 use pyo3::exceptions::{PyAttributeError, PyIOError, PyTypeError, PyValueError};
 use pyo3::ffi;
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{
     PyAnyMethods, PyBool, PyByteArray, PyBytes, PyDict, PyDictMethods, PyFloat, PyInt, PyIterator,
     PyList, PyModule, PySequence, PySequenceMethods, PyString, PyTuple,
@@ -21,9 +21,9 @@ use std::path::PathBuf;
 type Result<T> = PyResult<T>;
 type BuiltinTypes = (Py<PyAny>, Py<PyAny>, Py<PyAny>, Py<PyAny>);
 
-static YAML_CLASS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-static ABC_TYPES: GILOnceCell<(Py<PyAny>, Py<PyAny>)> = GILOnceCell::new();
-static BUILTIN_TYPES: GILOnceCell<BuiltinTypes> = GILOnceCell::new();
+static YAML_CLASS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static ABC_TYPES: PyOnceLock<(Py<PyAny>, Py<PyAny>)> = PyOnceLock::new();
+static BUILTIN_TYPES: PyOnceLock<BuiltinTypes> = PyOnceLock::new();
 const GIL_RELEASE_MIN_PARSE_LEN: usize = 2048;
 const GIL_RELEASE_MIN_EMIT_DOCS: usize = 4;
 const GIL_RELEASE_MIN_EMIT_COLLECTION_LEN: usize = 32;
@@ -90,7 +90,7 @@ impl HandlerRegistry {
             return Ok(None);
         }
 
-        let dict: &Bound<'_, PyDict> = obj.downcast().map_err(|_| {
+        let dict: &Bound<'_, PyDict> = obj.cast().map_err(|_| {
             PyTypeError::new_err("`handlers` must be a dict mapping tag strings to callables")
         })?;
 
@@ -100,7 +100,7 @@ impl HandlerRegistry {
 
         let mut handlers_map: HandlerMap = HashMap::with_capacity(dict.len());
         for (key_obj, value_obj) in dict.iter() {
-            let key_str = key_obj.downcast::<PyString>().map_err(|_| {
+            let key_str = key_obj.cast::<PyString>().map_err(|_| {
                 PyTypeError::new_err("handler keys must be strings or subclasses of str")
             })?;
             let key_text = key_str.to_str()?;
@@ -126,7 +126,7 @@ impl HandlerRegistry {
             .and_then(|suffixes| suffixes.get(tag.suffix.as_str()))
     }
 
-    fn apply(&self, py: Python<'_>, handler: &Py<PyAny>, arg: PyObject) -> Result<PyObject> {
+    fn apply(&self, py: Python<'_>, handler: &Py<PyAny>, arg: Py<PyAny>) -> Result<Py<PyAny>> {
         handler.call1(py, (arg,))
     }
 }
@@ -144,7 +144,7 @@ fn builtin_types(py: Python<'_>) -> Result<&BuiltinTypes> {
 
 fn handler_registry_from_arg(
     py: Python<'_>,
-    handlers: Option<&PyObject>,
+    handlers: Option<&Py<PyAny>>,
 ) -> Result<Option<HandlerRegistry>> {
     match handlers {
         None => Ok(None),
@@ -213,15 +213,15 @@ fn split_tag_name(name: &str) -> Option<(&str, &str)> {
 ///     {'foo': 1, 'bar': True}
 fn parse_yaml(
     py: Python<'_>,
-    text: PyObject,
+    text: Py<PyAny>,
     multi: bool,
-    handlers: Option<PyObject>,
-) -> Result<PyObject> {
+    handlers: Option<Py<PyAny>>,
+) -> Result<Py<PyAny>> {
     let handler_registry = handler_registry_from_arg(py, handlers.as_ref())?;
     let handlers = handler_registry.as_ref();
 
     let bound = text.bind(py);
-    if let Ok(s) = bound.downcast::<PyString>() {
+    if let Ok(s) = bound.cast::<PyString>() {
         let src = s.to_str()?;
         if src.is_empty() {
             return if multi {
@@ -234,7 +234,7 @@ fn parse_yaml(
         return docs_to_python(py, docs, multi, handlers);
     }
 
-    if let Ok(seq) = bound.downcast::<PySequence>() {
+    if let Ok(seq) = bound.cast::<PySequence>() {
         let len = seq.len()?;
         if len == 0 {
             return if multi {
@@ -246,7 +246,7 @@ fn parse_yaml(
         let mut lines: Vec<Py<PyString>> = Vec::with_capacity(len);
         for idx in 0..len {
             let item = seq.get_item(idx)?;
-            let s: Bound<'_, PyString> = item.downcast_into().map_err(|err| {
+            let s: Bound<'_, PyString> = item.cast_into().map_err(|err| {
                 let item = err.into_inner();
                 PyTypeError::new_err(format!(
                     "`text` sequence must contain only strings (index {idx} got {})",
@@ -279,7 +279,7 @@ fn parse_yaml(
         let mut lines: Vec<Py<PyString>> = Vec::new();
         for (idx, item) in iter.enumerate() {
             let item = item?;
-            let s: Bound<'_, PyString> = item.downcast_into().map_err(|err| {
+            let s: Bound<'_, PyString> = item.cast_into().map_err(|err| {
                 let item = err.into_inner();
                 PyTypeError::new_err(format!(
                     "`text` iterable must yield only strings (index {idx} got {})",
@@ -339,29 +339,27 @@ fn parse_yaml(
 ///     {'debug': True}
 fn read_yaml(
     py: Python<'_>,
-    path: PyObject,
+    path: Py<PyAny>,
     multi: bool,
-    handlers: Option<PyObject>,
-) -> Result<PyObject> {
+    handlers: Option<Py<PyAny>>,
+) -> Result<Py<PyAny>> {
     let handler_registry = handler_registry_from_arg(py, handlers.as_ref())?;
     let handlers = handler_registry.as_ref();
 
     let bound = path.bind(py);
-    if let Ok(s) = bound.downcast::<PyString>() {
+    if let Ok(s) = bound.cast::<PyString>() {
         let path_str = s.to_str()?;
         let contents = py
-            .allow_threads(|| fs::read_to_string(path_str))
+            .detach(|| fs::read_to_string(path_str))
             .map_err(|err| PyIOError::new_err(format!("failed to read `{path_str}`: {err}")))?;
         let docs = load_yaml_documents(py, &contents, multi)?;
         return docs_to_python(py, docs, multi, handlers);
     }
 
     if let Some(path_buf) = pathlike_to_pathbuf(bound)? {
-        let contents = py
-            .allow_threads(|| fs::read_to_string(&path_buf))
-            .map_err(|err| {
-                PyIOError::new_err(format!("failed to read `{}`: {err}", path_buf.display()))
-            })?;
+        let contents = py.detach(|| fs::read_to_string(&path_buf)).map_err(|err| {
+            PyIOError::new_err(format!("failed to read `{}`: {err}", path_buf.display()))
+        })?;
         let docs = load_yaml_documents(py, &contents, multi)?;
         return docs_to_python(py, docs, multi, handlers);
     }
@@ -377,13 +375,13 @@ fn read_yaml(
             }
         })?;
 
-        if let Ok(s) = read_result.downcast::<PyString>() {
+        if let Ok(s) = read_result.cast::<PyString>() {
             let text = s.to_str()?;
             let docs = load_yaml_documents(py, text, multi)?;
             return docs_to_python(py, docs, multi, handlers);
         }
 
-        if let Ok(bytes) = read_result.downcast::<PyBytes>() {
+        if let Ok(bytes) = read_result.cast::<PyBytes>() {
             let text = std::str::from_utf8(bytes.as_bytes()).map_err(|err| {
                 PyValueError::new_err(format!(
                     "connection.read() returned non-UTF-8 bytes ({err})"
@@ -421,16 +419,16 @@ fn read_yaml(
 ///     'foo: 1\n'
 ///     >>> format_yaml(['first', 'second'], multi=True).endswith('...\n')
 ///     True
-fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<PyObject> {
+fn format_yaml(py: Python<'_>, value: Py<PyAny>, multi: bool) -> Result<Py<PyAny>> {
     let bound = value.bind(py);
     let yaml = py_to_yaml(py, bound, false)?;
     let mut output = format_yaml_impl(py, &yaml, multi)?;
     if multi {
         output.push_str("...\n");
-        return PyString::new(py, output.as_str()).into_py_any(py);
+        return Ok(PyString::new(py, output.as_str()).unbind().into_any());
     }
     let body = output.strip_prefix("---\n").unwrap_or(output.as_str());
-    PyString::new(py, body).into_py_any(py)
+    Ok(PyString::new(py, body).unbind().into_any())
 }
 
 #[pyfunction(signature = (value, path=None, multi=false))]
@@ -453,7 +451,12 @@ fn format_yaml(py: Python<'_>, value: PyObject, multi: bool) -> Result<PyObject>
 ///     >>> Path('out.yml').exists()
 ///     True
 ///     >>> write_yaml(['first', 'second'], multi=True)  # prints YAML ending with '...'
-fn write_yaml(py: Python<'_>, value: PyObject, path: Option<PyObject>, multi: bool) -> Result<()> {
+fn write_yaml(
+    py: Python<'_>,
+    value: Py<PyAny>,
+    path: Option<Py<PyAny>>,
+    multi: bool,
+) -> Result<()> {
     let bound = value.bind(py);
     let yaml = py_to_yaml(py, bound, false)?;
     let mut output = format_yaml_impl(py, &yaml, multi)?;
@@ -473,18 +476,17 @@ fn write_yaml(py: Python<'_>, value: PyObject, path: Option<PyObject>, multi: bo
         return Ok(());
     }
 
-    if let Ok(path_str) = bound_path.downcast::<PyString>() {
+    if let Ok(path_str) = bound_path.cast::<PyString>() {
         let p = path_str.to_str()?;
-        py.allow_threads(|| fs::write(p, &output))
+        py.detach(|| fs::write(p, &output))
             .map_err(|err| PyIOError::new_err(format!("failed to write `{p}`: {err}")))?;
         return Ok(());
     }
 
     if let Some(path_buf) = pathlike_to_pathbuf(bound_path)? {
-        py.allow_threads(|| fs::write(&path_buf, &output))
-            .map_err(|err| {
-                PyIOError::new_err(format!("failed to write `{}`: {err}", path_buf.display()))
-            })?;
+        py.detach(|| fs::write(&path_buf, &output)).map_err(|err| {
+            PyIOError::new_err(format!("failed to write `{}`: {err}", path_buf.display()))
+        })?;
         return Ok(());
     }
 
@@ -513,9 +515,9 @@ or wrap a binary stream with `io.TextIOWrapper(...)`. (writer.write(str) raised 
 
 #[pyfunction]
 /// Debug helper: pretty-print parsed YAML nodes without converting to Python values.
-fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
+fn _dbg_yaml(py: Python<'_>, text: Py<PyAny>) -> Result<()> {
     let bound = text.bind(py);
-    if let Ok(s) = bound.downcast::<PyString>() {
+    if let Ok(s) = bound.cast::<PyString>() {
         let src = s.to_str()?;
         if src.is_empty() {
             return Ok(());
@@ -525,7 +527,7 @@ fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
         return Ok(());
     }
 
-    if let Ok(seq) = bound.downcast::<PySequence>() {
+    if let Ok(seq) = bound.cast::<PySequence>() {
         let len = seq.len()?;
         if len == 0 {
             return Ok(());
@@ -533,7 +535,7 @@ fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
         let mut lines: Vec<Py<PyString>> = Vec::with_capacity(len);
         for idx in 0..len {
             let item = seq.get_item(idx)?;
-            let s: Bound<'_, PyString> = item.downcast_into().map_err(|err| {
+            let s: Bound<'_, PyString> = item.cast_into().map_err(|err| {
                 let item = err.into_inner();
                 PyTypeError::new_err(format!(
                     "`text` sequence must contain only strings (index {idx} got {})",
@@ -566,14 +568,14 @@ fn _dbg_yaml(py: Python<'_>, text: PyObject) -> Result<()> {
             }
         })?;
 
-        if let Ok(s) = read_result.downcast::<PyString>() {
+        if let Ok(s) = read_result.cast::<PyString>() {
             let text = s.to_str()?;
             let docs = load_yaml_documents(py, text, true)?;
             println!("{docs:#?}");
             return Ok(());
         }
 
-        if let Ok(bytes) = read_result.downcast::<PyBytes>() {
+        if let Ok(bytes) = read_result.cast::<PyBytes>() {
             let text = std::str::from_utf8(bytes.as_bytes()).map_err(|err| {
                 PyValueError::new_err(format!(
                     "connection.read() returned non-UTF-8 bytes ({err})"
@@ -599,13 +601,13 @@ fn docs_to_python(
     mut docs: Vec<Yaml<'_>>,
     multi: bool,
     handlers: Option<&HandlerRegistry>,
-) -> Result<PyObject> {
+) -> Result<Py<PyAny>> {
     if multi {
         let mut values = Vec::with_capacity(docs.len());
         for doc in docs.iter_mut() {
             values.push(yaml_to_py(py, doc, false, handlers)?);
         }
-        Ok(PyList::new(py, values)?.unbind().into())
+        Ok(PyList::new(py, values)?.unbind().into_any())
     } else {
         match docs.first_mut() {
             Some(doc) => yaml_to_py(py, doc, false, handlers),
@@ -643,7 +645,7 @@ fn load_yaml_documents<'py, 'input>(
     loader.early_parse(false);
     let mut load = || parser.load(&mut loader, multi);
     let result = if should_release_gil_for_parse(text.len()) {
-        py.allow_threads(load)
+        py.detach(load)
     } else {
         load()
     };
@@ -661,11 +663,7 @@ fn load_yaml_documents_slices<'py, 'input>(
     let mut loader = saphyr::YamlLoader::default();
     loader.early_parse(false);
     let mut load = || parser.load(&mut loader, multi);
-    let result = if release_gil {
-        py.allow_threads(load)
-    } else {
-        load()
-    };
+    let result = if release_gil { py.detach(load) } else { load() };
     result.map_err(|err| PyValueError::new_err(format!("YAML parse error: {err}")))?;
     Ok(loader.into_documents())
 }
@@ -726,7 +724,7 @@ fn yaml_to_py(
     node: &mut Yaml,
     is_key: bool,
     handlers: Option<&HandlerRegistry>,
-) -> Result<PyObject> {
+) -> Result<Py<PyAny>> {
     match node {
         Yaml::Representation(_, _, _) => {
             resolve_representation(node);
@@ -759,7 +757,7 @@ fn yaml_to_py(
     }
 }
 
-fn scalar_to_py(py: Python<'_>, scalar: &Scalar) -> PyObject {
+fn scalar_to_py(py: Python<'_>, scalar: &Scalar) -> Py<PyAny> {
     match scalar {
         Scalar::Null => py.None(),
         Scalar::Boolean(v) => (*v)
@@ -783,26 +781,26 @@ fn sequence_to_py(
     py: Python<'_>,
     seq: &mut [Yaml],
     handlers: Option<&HandlerRegistry>,
-) -> Result<PyObject> {
+) -> Result<Py<PyAny>> {
     let mut values = Vec::with_capacity(seq.len());
     for node in seq {
         values.push(yaml_to_py(py, node, false, handlers)?);
     }
-    Ok(PyList::new(py, values)?.unbind().into())
+    Ok(PyList::new(py, values)?.unbind().into_any())
 }
 
 fn mapping_to_py(
     py: Python<'_>,
     map: &mut Mapping,
     handlers: Option<&HandlerRegistry>,
-) -> Result<PyObject> {
+) -> Result<Py<PyAny>> {
     let dict = PyDict::new(py);
     for (mut key, mut value) in map.drain() {
         let key_obj = yaml_to_py(py, &mut key, true, handlers)?;
         let value_obj = yaml_to_py(py, &mut value, false, handlers)?;
         dict.set_item(key_obj, value_obj)?;
     }
-    Ok(dict.into())
+    Ok(dict.unbind().into_any())
 }
 
 fn render_tag_cached<'a>(rendered: &'a mut Option<String>, tag: &Tag) -> &'a str {
@@ -851,7 +849,7 @@ fn convert_tagged(
     node: &mut Yaml,
     is_key: bool,
     handlers: Option<&HandlerRegistry>,
-) -> Result<PyObject> {
+) -> Result<Py<PyAny>> {
     let mut rendered_tag: Option<String> = None;
 
     if let Some(registry) = handlers {
@@ -897,14 +895,14 @@ fn convert_tagged(
     make_yaml_node(py, value, Some(rendered))
 }
 
-fn make_yaml_node(py: Python<'_>, value: PyObject, tag: Option<&str>) -> Result<PyObject> {
+fn make_yaml_node(py: Python<'_>, value: Py<PyAny>, tag: Option<&str>) -> Result<Py<PyAny>> {
     let cls = YAML_CLASS
         .get(py)
         .ok_or_else(|| PyValueError::new_err("Yaml class is not initialized"))?;
     if let Some(tag) = tag {
-        cls.bind(py).call1((value, tag)).map(|obj| obj.into())
+        Ok(cls.bind(py).call1((value, tag))?.unbind())
     } else {
-        cls.bind(py).call1((value,)).map(|obj| obj.into())
+        Ok(cls.bind(py).call1((value,))?.unbind())
     }
 }
 
@@ -985,7 +983,7 @@ fn emit_yaml_documents(
 fn format_yaml_impl(py: Python<'_>, value: &Yaml<'static>, multi: bool) -> Result<String> {
     let emit = |docs: &[Yaml<'static>], multi: bool| {
         if should_release_gil_for_emit(value, multi) {
-            py.allow_threads(|| emit_yaml_documents(docs, multi))
+            py.detach(|| emit_yaml_documents(docs, multi))
         } else {
             emit_yaml_documents(docs, multi)
         }
@@ -1110,7 +1108,7 @@ fn write_to_stdout(py: Python<'_>, content: &str) -> Result<()> {
 }
 
 fn write_to_stdout_fallback(py: Python<'_>, content: &str) -> Result<()> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let mut stdout = io::stdout();
         stdout.write_all(content.as_bytes())?;
         stdout.flush()
@@ -1130,7 +1128,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
         if tag_obj.is_none() {
             return py_to_yaml(py, &value_obj, is_key);
         }
-        let tag_str = tag_obj.downcast::<PyString>()?.to_str()?;
+        let tag_str = tag_obj.cast::<PyString>()?.to_str()?;
         let tag = parse_tag_string(tag_str)?;
         let inner = py_to_yaml(py, &value_obj, is_key)?;
         return if is_core_scalar_tag(&tag) {
@@ -1165,14 +1163,14 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
     }
 
     if ty.is(str_type.bind(py)) {
-        let s: &Bound<'_, PyString> = obj.downcast()?;
+        let s: &Bound<'_, PyString> = obj.cast()?;
         return Ok(Yaml::Value(Scalar::String(Cow::Owned(
             s.to_str()?.to_owned(),
         ))));
     }
 
     if obj.is_instance_of::<PyDict>() {
-        let dict: &Bound<'_, PyDict> = obj.downcast()?;
+        let dict: &Bound<'_, PyDict> = obj.cast()?;
         let mut mapping = Mapping::with_capacity(dict.len());
         for (key_obj, value_obj) in dict.iter() {
             let key_yaml = py_to_yaml(py, &key_obj, true)?;
@@ -1183,7 +1181,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
     }
 
     if obj.is_instance_of::<PyList>() {
-        let list: &Bound<'_, PyList> = obj.downcast()?;
+        let list: &Bound<'_, PyList> = obj.cast()?;
         let mut values = Vec::with_capacity(list.len());
         for item in list.iter() {
             values.push(py_to_yaml(py, &item, false)?);
@@ -1192,7 +1190,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
     }
 
     if obj.is_instance_of::<PyTuple>() {
-        let tuple: &Bound<'_, PyTuple> = obj.downcast()?;
+        let tuple: &Bound<'_, PyTuple> = obj.cast()?;
         let mut values = Vec::with_capacity(tuple.len());
         for item in tuple.iter() {
             values.push(py_to_yaml(py, &item, false)?);
@@ -1200,8 +1198,8 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
         return Ok(Yaml::Sequence(values));
     }
 
-    if let Ok(seq) = obj.downcast::<PySequence>() {
-        if obj.downcast::<PyString>().is_err() {
+    if let Ok(seq) = obj.cast::<PySequence>() {
+        if obj.cast::<PyString>().is_err() {
             let len = seq.len()?;
             let mut values = Vec::with_capacity(len);
             for idx in 0..len {
@@ -1220,7 +1218,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
         for item in iter {
             let pair = item?;
             let tuple: Bound<'_, PyTuple> = pair
-                .downcast_into()
+                .cast_into()
                 .map_err(|_| PyTypeError::new_err("mapping items must be (key, value) pairs"))?;
             if tuple.len() != 2 {
                 return Err(PyTypeError::new_err(
@@ -1261,7 +1259,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
         return Ok(Yaml::Value(Scalar::FloatingPoint(f.into())));
     }
 
-    if let Ok(s) = obj.downcast::<PyString>() {
+    if let Ok(s) = obj.cast::<PyString>() {
         return Ok(Yaml::Value(Scalar::String(Cow::Owned(
             s.to_str()?.to_owned(),
         ))));
@@ -1437,6 +1435,7 @@ pub fn yaml12(py: Python<'_>, m: &Bound<'_, PyModule>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyo3::types::{PyDict, PyList, PyModule};
     use saphyr::{LoadableYamlNode, Scalar, Tag};
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -1448,6 +1447,12 @@ mod tests {
     fn load_scalar(input: &str) -> Yaml<'_> {
         let mut docs = Yaml::load_from_str(input).expect("parser should load tagged scalar");
         docs.pop().expect("expected one document")
+    }
+
+    fn init_test_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
+        let module = PyModule::new(py, "yaml12_test")?;
+        super::yaml12(py, &module)?;
+        Ok(module)
     }
 
     #[test]
@@ -1571,5 +1576,103 @@ mod tests {
         let big_map_yaml = Yaml::Mapping(big_map);
         assert!(!should_release_gil_for_emit(&small_map, false));
         assert!(should_release_gil_for_emit(&big_map_yaml, false));
+    }
+
+    #[test]
+    fn parse_simple_mapping() -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = init_test_module(py)?;
+            let parse = module.getattr("parse_yaml")?;
+            let obj = parse.call1(("foo: 1\nbar: true",))?;
+            let mapping: Bound<'_, PyDict> = obj.cast_into()?;
+            let foo = mapping
+                .get_item("foo")?
+                .expect("foo key should be present")
+                .extract::<i64>()?;
+            let bar = mapping
+                .get_item("bar")?
+                .expect("bar key should be present")
+                .extract::<bool>()?;
+            assert_eq!(foo, 1);
+            assert!(bar);
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn roundtrip_multi_documents() -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = init_test_module(py)?;
+            let format_yaml = module.getattr("format_yaml")?;
+            let parse_yaml = module.getattr("parse_yaml")?;
+
+            let docs = PyList::new(py, ["first", "second"])?;
+            let yaml = format_yaml.call1((docs, true))?.extract::<String>()?;
+            assert!(
+                yaml.starts_with("---"),
+                "expected multi-doc stream to start with document marker"
+            );
+            assert!(
+                yaml.trim_end().ends_with("..."),
+                "expected multi-doc stream to end with terminator"
+            );
+
+            let parsed = parse_yaml.call1((yaml.as_str(), true))?;
+            let list: Bound<'_, PyList> = parsed.cast_into()?;
+            assert_eq!(list.len(), 2);
+            assert_eq!(list.get_item(0)?.extract::<String>()?, "first");
+            assert_eq!(list.get_item(1)?.extract::<String>()?, "second");
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn preserves_non_core_tags() -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = init_test_module(py)?;
+            let parse_yaml = module.getattr("parse_yaml")?;
+            let format_yaml = module.getattr("format_yaml")?;
+            let yaml_cls = module.getattr("Yaml")?;
+
+            let parsed = parse_yaml.call1(("!foo 1",))?;
+            assert!(parsed.is_instance(&yaml_cls)?);
+            assert_eq!(parsed.getattr("tag")?.extract::<String>()?, "!foo");
+            assert_eq!(parsed.getattr("value")?.extract::<String>()?, "1");
+
+            let tagged = yaml_cls.call1((2, "!bar"))?;
+            let yaml = format_yaml.call1((tagged,))?.extract::<String>()?;
+            assert!(yaml.starts_with("!bar "));
+            let reparsed = parse_yaml.call1((yaml.as_str(),))?;
+            assert!(reparsed.is_instance(&yaml_cls)?);
+            assert_eq!(reparsed.getattr("tag")?.extract::<String>()?, "!bar");
+            assert_eq!(reparsed.getattr("value")?.extract::<String>()?, "2");
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn non_specific_tag_parts_are_consistent() {
+        let mut loader = saphyr::YamlLoader::default();
+        loader.early_parse(false);
+        let mut parser = Parser::new_from_str("! 001");
+        parser
+            .load(&mut loader, false)
+            .expect("parser should load non-specific tag");
+        let mut docs = loader.into_documents();
+        let doc = docs.pop().expect("document should be present");
+        match doc {
+            Yaml::Tagged(tag, _) => {
+                assert_eq!(tag.handle.as_str(), "");
+                assert_eq!(tag.suffix.as_str(), "!");
+            }
+            Yaml::Representation(_, _, Some(tag)) => {
+                assert_eq!(tag.handle.as_str(), "");
+                assert_eq!(tag.suffix.as_str(), "!");
+            }
+            other => panic!("expected tagged or representation node, got {other:?}"),
+        }
     }
 }
