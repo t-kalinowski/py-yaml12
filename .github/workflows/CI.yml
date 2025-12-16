@@ -125,11 +125,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        if: ${{ matrix.platform.target == 'x64' }}
-        with:
-          python-version: pypy-3.11
-          architecture: ${{ matrix.platform.target }}
-      - uses: actions/setup-python@v5
         with:
           python-version: 3.x
           architecture: ${{ matrix.platform.target }}
@@ -153,6 +148,13 @@ jobs:
         with:
           python-version: pypy-3.11
           architecture: ${{ matrix.platform.target }}
+      - name: Build PyPy wheel
+        if: ${{ matrix.platform.target == 'x64' }}
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --interpreter python
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Test PyPy wheel
         if: ${{ matrix.platform.target == 'x64' }}
         shell: bash
