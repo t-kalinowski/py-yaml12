@@ -38,3 +38,8 @@ def test_yaml_is_immutable_and_proxies_collections() -> None:
 def test_yaml_constructor_normalizes_simple_local_tags() -> None:
     tagged = yaml12.Yaml("value", "gizmo")
     assert tagged.tag == "!gizmo"
+
+
+def test_yaml_constructor_rejects_non_string_tag() -> None:
+    with pytest.raises(TypeError):
+        yaml12.Yaml(3, 4)  # type: ignore[arg-type]
