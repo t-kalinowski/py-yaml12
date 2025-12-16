@@ -440,6 +440,17 @@ impl YamlNode {
         }
     }
 
+    fn __reduce__(&self, py: Python<'_>) -> Result<Py<PyAny>> {
+        let cls = py.get_type::<YamlNode>().unbind().into_any();
+        let tag_obj: Py<PyAny> = match &self.tag {
+            Some(tag) => tag.clone_ref(py).into_any(),
+            None => py.None(),
+        };
+        let args = PyTuple::new(py, [self.value.clone_ref(py), tag_obj])?;
+        let reduced = PyTuple::new(py, [cls, args.unbind().into_any()])?;
+        Ok(reduced.unbind().into_any())
+    }
+
     fn __getitem__(&self, py: Python<'_>, key: Py<PyAny>) -> Result<Py<PyAny>> {
         let Some(target) = self.proxy_target(py)? else {
             return Err(PyTypeError::new_err("Yaml.value does not support indexing"));
@@ -1520,7 +1531,7 @@ fn py_to_yaml(py: Python<'_>, obj: &Bound<'_, PyAny>, is_key: bool) -> Result<Ya
 
     let (mapping_cls, sequence_cls) = abc_types(py)?;
     if obj.is_instance(mapping_cls.bind(py))? {
-        let items = obj.getattr("items")?;
+        let items = obj.getattr("items")?.call0()?;
         let iter = PyIterator::from_object(items.as_any())?;
         let mut mapping = Mapping::new();
         for item in iter {

@@ -48,3 +48,14 @@ def test_yaml_constructor_normalizes_simple_local_tags() -> None:
 def test_yaml_constructor_rejects_non_string_tag() -> None:
     with pytest.raises(TypeError):
         yaml12.Yaml(3, 4)  # type: ignore[arg-type]
+
+
+def test_yaml_is_picklable() -> None:
+    import pickle
+
+    obj = yaml12.Yaml({"a": [1, 2]}, "!tag")
+    data = pickle.dumps(obj)
+    out = pickle.loads(data)
+
+    assert isinstance(out, yaml12.Yaml)
+    assert out == obj

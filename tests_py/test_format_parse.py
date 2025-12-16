@@ -4,7 +4,7 @@ import base64
 import math
 import textwrap
 import types
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Callable
 from pathlib import Path
 
@@ -186,6 +186,25 @@ def test_format_yaml_returns_string_and_round_trips():
 
     assert isinstance(out, str)
     assert yaml12.parse_yaml(out) == obj
+
+
+def test_format_yaml_accepts_non_dict_mapping():
+    class CustomMapping(Mapping):
+        def __init__(self, data: dict[str, int]):
+            self._data = data
+
+        def __iter__(self):
+            return iter(self._data)
+
+        def __len__(self):
+            return len(self._data)
+
+        def __getitem__(self, key: str):
+            return self._data[key]
+
+    obj = CustomMapping({"a": 1, "b": 2})
+    encoded = yaml12.format_yaml(obj)
+    assert yaml12.parse_yaml(encoded) == {"a": 1, "b": 2}
 
 
 def test_format_yaml_preserves_single_length_collections():
