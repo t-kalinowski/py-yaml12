@@ -205,10 +205,10 @@ fn normalize_simple_tag_name_for_api<'a>(tag: &'a str) -> Cow<'a, str> {
 }
 
 #[pyfunction]
-fn _normalize_tag(py: Python<'_>, tag: PyObject) -> Result<PyObject> {
+fn _normalize_tag(py: Python<'_>, tag: Py<PyAny>) -> Result<Py<PyAny>> {
     let bound = tag.bind(py);
     let tag_str: &Bound<'_, PyString> = bound
-        .downcast()
+        .cast()
         .map_err(|_| PyTypeError::new_err("`tag` must be a string"))?;
 
     let text = tag_str.to_str()?;
@@ -222,15 +222,15 @@ fn _normalize_tag(py: Python<'_>, tag: PyObject) -> Result<PyObject> {
     if normalized.as_ref() == text {
         Ok(tag)
     } else {
-        PyString::new(py, normalized.as_ref()).into_py_any(py)
+        Ok(PyString::new(py, normalized.as_ref()).unbind().into_any())
     }
 }
 
 #[pyfunction]
-fn _set_yaml_class(py: Python<'_>, cls: PyObject) -> Result<()> {
+fn _set_yaml_class(py: Python<'_>, cls: Py<PyAny>) -> Result<()> {
     let bound = cls.bind(py);
     bound
-        .downcast::<PyType>()
+        .cast::<PyType>()
         .map_err(|_| PyTypeError::new_err("`cls` must be a Python type"))?;
 
     if let Some(existing) = YAML_CLASS.get(py) {
@@ -241,7 +241,7 @@ fn _set_yaml_class(py: Python<'_>, cls: PyObject) -> Result<()> {
     }
 
     YAML_CLASS
-        .set(py, cls.clone_ref(py))
+        .set(py, cls)
         .map_err(|_| PyValueError::new_err("Yaml class is already initialized"))
 }
 
@@ -1427,12 +1427,16 @@ mod tests {
     use super::*;
     use pyo3::types::{PyDict, PyList, PyModule};
     use saphyr::{LoadableYamlNode, Scalar, Tag};
+    use std::ffi::CString;
+    use std::sync::Mutex;
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     enum ParsedValueKind {
         String,
         Boolean,
     }
+
+    static PY_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn load_scalar(input: &str) -> Yaml<'_> {
         let mut docs = Yaml::load_from_str(input).expect("parser should load tagged scalar");
@@ -1442,6 +1446,62 @@ mod tests {
     fn init_test_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
         let module = PyModule::new(py, "yaml12_test")?;
         super::yaml12(py, &module)?;
+        let builtins = PyModule::import(py, "builtins")?;
+        let yaml_cls = match builtins.getattr("_yaml12_test_yaml_cls") {
+            Ok(cls) if !cls.is_none() => cls.unbind(),
+            _ => {
+                let helpers = CString::new(
+                    r#"
+from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+
+def _freeze(obj):
+    if isinstance(obj, Yaml):
+        return ("yaml", obj.tag, _freeze(obj.value))
+    if isinstance(obj, Mapping):
+        return ("map", tuple((_freeze(k), _freeze(v)) for k, v in obj.items()))
+    if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+        return ("seq", tuple(_freeze(x) for x in obj))
+    try:
+        hash(obj)
+        return obj
+    except TypeError:
+        return ("unhashable", id(obj))
+
+@dataclass(frozen=True)
+class Yaml:
+    value: object
+    tag: str | None = None
+
+    def __post_init__(self):
+        frozen = ("tagged", self.tag, _freeze(self.value))
+        object.__setattr__(self, "_frozen", frozen)
+        object.__setattr__(self, "_hash", hash(frozen))
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        if not isinstance(other, Yaml):
+            return NotImplemented
+        return self._frozen == other._frozen
+                    "#,
+                )
+                .expect("helpers must not contain null bytes");
+
+                let locals = PyDict::new(py);
+                py.run(helpers.as_c_str(), Some(&locals), Some(&locals))?;
+                let yaml_cls = locals
+                    .get_item("Yaml")?
+                    .expect("Yaml class should be defined")
+                    .unbind();
+                builtins.setattr("_yaml12_test_yaml_cls", yaml_cls.clone_ref(py))?;
+                yaml_cls
+            }
+        };
+
+        module.call_method1("_set_yaml_class", (yaml_cls.clone_ref(py),))?;
+        module.setattr("Yaml", yaml_cls)?;
         Ok(module)
     }
 
@@ -1570,6 +1630,7 @@ mod tests {
 
     #[test]
     fn parse_simple_mapping() -> PyResult<()> {
+        let _guard = PY_TEST_LOCK.lock().expect("python test lock poisoned");
         Python::initialize();
         Python::attach(|py| {
             let module = init_test_module(py)?;
@@ -1592,6 +1653,7 @@ mod tests {
 
     #[test]
     fn roundtrip_multi_documents() -> PyResult<()> {
+        let _guard = PY_TEST_LOCK.lock().expect("python test lock poisoned");
         Python::initialize();
         Python::attach(|py| {
             let module = init_test_module(py)?;
@@ -1620,6 +1682,7 @@ mod tests {
 
     #[test]
     fn preserves_non_core_tags() -> PyResult<()> {
+        let _guard = PY_TEST_LOCK.lock().expect("python test lock poisoned");
         Python::initialize();
         Python::attach(|py| {
             let module = init_test_module(py)?;
