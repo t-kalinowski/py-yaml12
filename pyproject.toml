@@ -35,6 +35,3 @@ Homepage = "https://github.com/posit-dev/py-yaml12"
 Documentation = "https://posit-dev.github.io/py-yaml12/"
 Source = "https://github.com/posit-dev/py-yaml12"
 Issues = "https://github.com/posit-dev/py-yaml12/issues"
-
-[tool.maturin]
-features = ["pyo3/extension-module", "pyo3/abi3-py310"]
