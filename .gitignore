@@ -71,3 +71,9 @@ site/
 
 # Pyenv
 .python-version
+
+# Benchmarks
+.bench*/
+
+/.quarto/
+**/*.quarto_ipynb

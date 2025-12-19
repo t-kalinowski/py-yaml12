@@ -1,0 +1,11 @@
+.md-content__inner img,
+.md-content img,
+.md-typeset img,
+.markdown-body img,
+.col-md-9 img {
+  width: 100% !important;
+  max-width: none !important;
+  height: auto;
+  display: block;
+  /* margin-left: -10%; */
+}

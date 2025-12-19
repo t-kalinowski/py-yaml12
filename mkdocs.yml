@@ -10,6 +10,7 @@ nav:
   - Guides:
       - YAML in 2 Minutes: usage.md
       - Tags, Anchors, and Advanced YAML: tags.md
+      - Benchmarks and Performance: benchmarks/index.md
   - Reference:
       - Overview: reference/index.md
       - parse_yaml() and read_yaml(): reference/parse_yaml.md
@@ -20,3 +21,5 @@ markdown_extensions:
   - admonition
   - toc:
       permalink: true
+extra_css:
+  - extra.css
