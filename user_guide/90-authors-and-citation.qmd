@@ -1,4 +1,7 @@
-# Authors and Citation
+---
+title: "Authors and Citation"
+guide-section: "About"
+---
 
 ## Authors
 

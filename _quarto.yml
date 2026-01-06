@@ -1,5 +1,0 @@
-project:
-  type: default
-  output-dir: docs/benchmarks
-  render:
-    - benchmarks.qmd
