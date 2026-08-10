@@ -60,7 +60,7 @@ def _strip_tags(obj):
 
 @pytest.mark.parametrize(
     "kind, case_dir",
-    _iter_cases(),
+    list(_iter_cases()),
     ids=lambda kc: f"{kc[0]}:{kc[1].name}" if isinstance(kc, tuple) else str(kc),
 )
 def test_yaml_suite_cases(kind: Literal["json", "error", "parse_only"], case_dir: Path):
