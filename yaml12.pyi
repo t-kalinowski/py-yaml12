@@ -87,9 +87,6 @@ def read_yaml(
 def _dbg_yaml(text: str | Iterable[str] | _Readable) -> None: ...
 
 
-def _normalize_tag(tag: str) -> str: ...
-
-
 def write_yaml(
     value: Any,
     path: str | PathLike[str] | _Writable | None = None,
