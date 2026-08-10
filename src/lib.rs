@@ -1062,23 +1062,10 @@ fn resolve_representation(node: &mut Yaml) {
                             Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
                         }
                     }
-                    "binary" | "set" | "omap" | "pairs" | "timestamp" => {
-                        Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
+                    "bool" | "int" | "float" => {
+                        Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
                     }
-                    _ => {
-                        let parsed =
-                            Yaml::value_from_cow_and_metadata(value.clone(), style, Some(&tag));
-                        if matches!(parsed, Yaml::BadValue)
-                            && !matches!(
-                                tag.suffix.as_str(),
-                                "bool" | "int" | "float" | "null" | "str"
-                            )
-                        {
-                            Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
-                        } else {
-                            parsed
-                        }
-                    }
+                    _ => Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value)))),
                 }
             } else {
                 Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
@@ -1231,13 +1218,7 @@ fn convert_tagged(
                     Ok(value)
                 }
             }
-            "timestamp" | "set" | "omap" | "pairs" | "binary" => {
-                make_yaml_node(py, value, Some(public_tag.as_ref()))
-            }
-            _ => Err(PyValueError::new_err(format!(
-                "unsupported core-schema tag `{}`",
-                public_tag.as_ref()
-            ))),
+            _ => make_yaml_node(py, value, Some(public_tag.as_ref())),
         };
     }
 

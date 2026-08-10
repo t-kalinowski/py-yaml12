@@ -618,12 +618,20 @@ def test_parse_yaml_errors_on_invalid_canonical_tags():
         yaml12.parse_yaml("!!null foo")
 
 
-def test_parse_yaml_errors_on_unknown_core_tag():
-    with pytest.raises(
-        ValueError,
-        match=r"unsupported core-schema tag `tag:yaml.org,2002:unknown`",
-    ):
-        yaml12.parse_yaml("!<tag:yaml.org,2002:unknown> value")
+def test_parse_yaml_preserves_unknown_core_tag():
+    parsed = yaml12.parse_yaml("!!python/object:__main__.DangerousPayload {}")
+
+    assert parsed == Yaml(
+        {}, "tag:yaml.org,2002:python/object:__main__.DangerousPayload"
+    )
+    assert yaml12.parse_yaml(yaml12.format_yaml(parsed)) == parsed
+
+
+def test_unknown_core_tagged_scalar_round_trips():
+    parsed = yaml12.parse_yaml('!!unknown "true"')
+
+    assert parsed == Yaml("true", "tag:yaml.org,2002:unknown")
+    assert yaml12.parse_yaml(yaml12.format_yaml(parsed)) == parsed
 
 
 def test_parse_yaml_non_string_keys_round_trip():
