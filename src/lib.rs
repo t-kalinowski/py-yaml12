@@ -1,7 +1,7 @@
 mod emitter;
 
 use crate::emitter::YamlEmitter;
-use pyo3::exceptions::{PyAttributeError, PyIOError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyIOError, PyTypeError, PyValueError};
 use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
@@ -1174,7 +1174,7 @@ fn mapping_to_py(
     Ok(dict.unbind().into_any())
 }
 
-fn handler_result_needs_wrap(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<bool> {
+fn handler_result_needs_wrap(obj: &Bound<'_, PyAny>) -> Result<bool> {
     if obj.is_instance_of::<YamlNode>() || obj.is_none() {
         return Ok(false);
     }
@@ -1190,19 +1190,9 @@ fn handler_result_needs_wrap(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<b
         return Ok(false);
     }
 
-    hash_is_disabled(py, obj)
-}
-
-fn hash_is_disabled(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<bool> {
-    obj.getattr("__hash__")
-        .map(|hash_attr| hash_attr.is_none())
-        .or_else(|err| {
-            if err.is_instance_of::<PyAttributeError>(py) {
-                Ok(false)
-            } else {
-                Err(err)
-            }
-        })
+    Ok(obj
+        .getattr_opt(pyo3::intern!(obj.py(), "__hash__"))?
+        .is_some_and(|hash| hash.is_none()))
 }
 
 fn convert_tagged(
@@ -1221,7 +1211,7 @@ fn convert_tagged(
             // handles hashability and tag preservation.
             let value = yaml_to_py(py, node, false, handlers)?;
             let handled = handler.call1(py, (value,))?;
-            if is_key && handler_result_needs_wrap(py, handled.bind(py))? {
+            if is_key && handler_result_needs_wrap(handled.bind(py))? {
                 return make_yaml_node(py, handled, None);
             }
             return Ok(handled);
