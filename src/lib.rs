@@ -1314,7 +1314,6 @@ fn emit_yaml_documents(
 ) -> std::result::Result<String, saphyr::EmitError> {
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
-    emitter.multiline_strings(true);
     emitter.string_wrap_width(width);
     if multi {
         emitter.dump_docs(docs)?;
