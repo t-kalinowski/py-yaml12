@@ -317,6 +317,15 @@ assert out.startswith("---\n!expr 1 + x\n")
 assert out.rstrip().endswith("...")
 ```
 
+`Yaml` stores simple local tag names in normalized `!name` form. To
+inspect the normalized form, construct a temporary `Yaml` and read its
+`.tag`:
+
+```{python}
+assert Yaml(None, "gizmo").tag == "!gizmo"
+assert Yaml(None, "!<gizmo>").tag == "!gizmo"
+```
+
 Tagged collections or mapping keys work the same way:
 
 ```{python}
