@@ -414,6 +414,17 @@ def test_parse_yaml_iterable_error_message_snapshots_index_and_value():
     )
 
 
+def test_parse_yaml_error_message_truncates_unicode_repr_safely():
+    class Item:
+        def __repr__(self) -> str:
+            return "€" * 100
+
+    with pytest.raises(TypeError) as excinfo:
+        yaml12.parse_yaml([Item()])  # type: ignore[list-item]
+
+    assert str(excinfo.value).endswith("...)")
+
+
 def test_dbg_yaml_sequence_error_message_snapshots_index_and_value():
     with pytest.raises(TypeError) as excinfo:
         yaml12._dbg_yaml([None])  # type: ignore[list-item]

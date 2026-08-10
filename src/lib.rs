@@ -44,7 +44,11 @@ fn unexpected_item_description(obj: &Bound<'_, PyAny>) -> String {
         .unwrap_or_else(|_| "<repr failed>".to_string());
     const REPR_LIMIT: usize = 200;
     if repr.len() > REPR_LIMIT {
-        repr.truncate(REPR_LIMIT);
+        let mut end = REPR_LIMIT;
+        while !repr.is_char_boundary(end) {
+            end -= 1;
+        }
+        repr.truncate(end);
         repr.push_str("...");
     }
     format!("{ty}: {repr}")
