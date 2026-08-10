@@ -112,6 +112,28 @@ def test_structured_example_matches_expected():
     assert parsed["doc"]["mixed"] == ["won't simplify", 123, True]
 
 
+def test_yaml_11_12_quick_reference_examples():
+    yaml_1_2 = textwrap.dedent(
+        """\
+        country: NO
+        enabled: on
+        port: 22:22
+        leading_zero: 010
+        octal: 0o10
+        release_date: 2026-01-07
+        """
+    )
+
+    assert yaml12.parse_yaml(yaml_1_2) == {
+        "country": "NO",
+        "enabled": "on",
+        "port": "22:22",
+        "leading_zero": 10,
+        "octal": 8,
+        "release_date": "2026-01-07",
+    }
+
+
 def test_mapping_keys_and_tags_round_trip():
     mapping = {
         "tagged_value": Yaml(["a", "b"], "!pair"),
@@ -218,7 +240,7 @@ def test_format_and_parse_multi_document_stream(
 ):
     docs = ["first", "second"]
     text = yaml12.format_yaml(docs, multi=True)
-    assert text.startswith("---") and text.rstrip().endswith("...")
+    assert text == "---\nfirst\n---\nsecond\n"
 
     yaml12.write_yaml(docs, path=None, multi=True)
     stdout = capfd.readouterr().out
@@ -274,5 +296,5 @@ def test_format_reference_examples(tmp_path: Path):
 
     path = tmp_path / "example.yaml"
     yaml12.write_yaml({"alpha": 1}, path)
-    expected = f"---\n{yaml12.format_yaml({'alpha': 1})}\n...\n"
+    expected = f"---\n{yaml12.format_yaml({'alpha': 1})}\n"
     assert path.read_text(encoding="utf-8") == expected

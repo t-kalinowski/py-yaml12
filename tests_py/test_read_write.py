@@ -28,7 +28,7 @@ def test_write_and_read_single_document(tmp_path: Path):
     body = yaml12.format_yaml(value)
     yaml12.write_yaml(value, str(path))
 
-    expected = f"---\n{body}\n...\n"
+    expected = f"---\n{body}\n"
     assert path.exists()
     assert path.read_text(encoding="utf-8") == expected
     assert yaml12.read_yaml(str(path)) == value
@@ -43,7 +43,7 @@ def test_write_yaml_defaults_to_stdout_when_path_is_none(
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
 
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     assert output == expected
     assert yaml12.parse_yaml(output) == value
@@ -52,7 +52,7 @@ def test_write_yaml_defaults_to_stdout_when_path_is_none(
 def test_write_yaml_respects_python_stdout_redirect():
     value = {"alpha": 1, "nested": [True, None]}
     encoded = yaml12.format_yaml(value)
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -72,7 +72,7 @@ def test_write_yaml_stdout_type_error_falls_back_to_real_stdout(
 
     value = {"alpha": 1, "nested": [True, None]}
     encoded = yaml12.format_yaml(value)
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
@@ -93,7 +93,7 @@ def test_write_yaml_stdout_malformed_falls_back_to_real_stdout(
 
     value = {"alpha": 1, "nested": [True, None]}
     encoded = yaml12.format_yaml(value)
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
@@ -107,7 +107,7 @@ def test_write_yaml_stdout_none_falls_back_to_real_stdout(
 
     value = {"alpha": 1}
     encoded = yaml12.format_yaml(value)
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
@@ -122,7 +122,7 @@ def test_write_yaml_stdout_missing_falls_back_to_real_stdout(
 
     value = {"alpha": 1}
     encoded = yaml12.format_yaml(value)
-    expected = f"---\n{encoded}\n...\n"
+    expected = f"---\n{encoded}\n"
 
     yaml12.write_yaml(value, path=None)
     output = capfd.readouterr().out
@@ -141,7 +141,7 @@ def test_write_yaml_stdout_without_flush_writes_to_stdout(monkeypatch: pytest.Mo
     monkeypatch.setattr(sys, "stdout", sink)
 
     value = {"alpha": 1}
-    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+    expected = f"---\n{yaml12.format_yaml(value)}\n"
 
     yaml12.write_yaml(value, path=None)
     assert "".join(sink.parts) == expected
@@ -160,7 +160,7 @@ def test_write_yaml_stdout_flush_none_is_ignored(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(sys, "stdout", sink)
 
     value = {"alpha": 1}
-    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+    expected = f"---\n{yaml12.format_yaml(value)}\n"
 
     yaml12.write_yaml(value, path=None)
     assert "".join(sink.parts) == expected
@@ -181,7 +181,7 @@ def test_write_yaml_stdout_flush_error_is_ignored(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(sys, "stdout", sink)
 
     value = {"alpha": 1}
-    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+    expected = f"---\n{yaml12.format_yaml(value)}\n"
 
     yaml12.write_yaml(value, path=None)
     assert "".join(sink.parts) == expected
@@ -209,6 +209,7 @@ def test_write_yaml_appends_documents(tmp_path: Path):
     yaml12.write_yaml(second, path, False, True)
     yaml12.write_yaml(docs, path, multi=True, append=True)
 
+    assert "..." not in path.read_text(encoding="utf-8").splitlines()
     assert yaml12.read_yaml(path, multi=True) == [first, second, *docs]
 
     replacement = [{"replacement": 5}]
@@ -249,7 +250,7 @@ def test_write_yaml_multi_empty_sequence_emits_empty_document(tmp_path: Path):
 
     yaml12.write_yaml([], str(path), multi=True)
 
-    assert path.read_text(encoding="utf-8") == "---\n...\n"
+    assert path.read_text(encoding="utf-8") == "---\n"
     assert yaml12.read_yaml(str(path), multi=True) == [None]
 
 
@@ -275,7 +276,6 @@ def test_write_yaml_preserves_multiline_strings(tmp_path: Path):
         tail: |
           line1
           line2
-        ...
         """
     )
     assert path.read_text(encoding="utf-8") == expected
@@ -441,7 +441,7 @@ def test_write_yaml_accepts_text_writer(tmp_path: Path):
     yaml12.write_yaml(value, handle)
     handle.close()
     assert (
-        path.read_text(encoding="utf-8") == f"---\n{yaml12.format_yaml(value)}\n...\n"
+        path.read_text(encoding="utf-8") == f"---\n{yaml12.format_yaml(value)}\n"
     )
 
 
@@ -470,7 +470,7 @@ def test_write_yaml_text_writer_handles_partial_writes():
     sink = PartialTextWriter(chunk=1)
     yaml12.write_yaml(value, sink)
 
-    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+    expected = f"---\n{yaml12.format_yaml(value)}\n"
     assert "".join(sink.parts) == expected
 
 
@@ -506,7 +506,7 @@ def test_write_yaml_prefers_text_for_textiobase():
 
     sink = Sink()
     yaml12.write_yaml({"alpha": 1}, sink)
-    expected = f"---\n{yaml12.format_yaml({'alpha': 1})}\n...\n"
+    expected = f"---\n{yaml12.format_yaml({'alpha': 1})}\n"
     assert "".join(sink.parts) == expected
 
 
@@ -525,7 +525,7 @@ def test_write_yaml_accepts_pathlike(tmp_path: Path):
     yaml12.write_yaml(value, path_from_path)
     yaml12.write_yaml(value, PathLike(path_from_fspath))
 
-    expected = f"---\n{yaml12.format_yaml(value)}\n...\n"
+    expected = f"---\n{yaml12.format_yaml(value)}\n"
     assert path_from_path.read_text(encoding="utf-8") == expected
     assert path_from_fspath.read_text(encoding="utf-8") == expected
 

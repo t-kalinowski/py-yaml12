@@ -258,9 +258,10 @@ assert (parsed_first, parsed_all) == ("doc 1", ["doc 1", "doc 2"])
 
 `write_yaml()` and `format_yaml()` also default to a single document.
 With `multi=True`, the value must be a sequence of documents and the
-output uses `---` between documents and `...` after the final one. For
-single documents, `write_yaml()` always wraps the body with `---` and a
-final `...`, while `format_yaml()` returns just the body.
+output starts each document with `---` and ends with a newline. It does
+not add optional `...` markers. For single documents, `write_yaml()`
+wraps the body with `---` and adds a final newline, while `format_yaml()`
+returns just the body.
 
 ```{python}
 import tempfile
@@ -270,7 +271,7 @@ from yaml12 import format_yaml, write_yaml
 
 docs = ["first", "second"]
 text = format_yaml(docs, multi=True)
-assert text.startswith("---") and text.rstrip().endswith("...")
+assert text == "---\nfirst\n---\nsecond\n"
 
 with tempfile.TemporaryDirectory() as tmpdir:
     out_path = Path(tmpdir) / "out.yml"
@@ -313,8 +314,7 @@ with redirect_stdout(buf):
     write_yaml(tagged)
 
 out = buf.getvalue()
-assert out.startswith("---\n!expr 1 + x\n")
-assert out.rstrip().endswith("...")
+assert out == "---\n!expr 1 + x\n"
 ```
 
 `Yaml` stores simple local tag names in normalized `!name` form. To

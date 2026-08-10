@@ -760,7 +760,7 @@ fn write_yaml_file(path: &Path, output: &str, append: bool) -> io::Result<()> {
 ///     width (int | None): Target maximum line width. None disables wrapping.
 ///
 /// Returns:
-///     str: YAML text; multi-document streams end with `...`.
+///     str: YAML text; each document in a multi-document stream begins with `---`.
 ///
 /// Raises:
 ///     TypeError: When argument types are unsupported, or `multi` is true and value is not a sequence.
@@ -769,7 +769,7 @@ fn write_yaml_file(path: &Path, output: &str, append: bool) -> io::Result<()> {
 /// Examples:
 ///     >>> format_yaml({'foo': 1})
 ///     'foo: 1'
-///     >>> format_yaml(['first', 'second'], multi=True).endswith('...\n')
+///     >>> format_yaml(['first', 'second'], multi=True).endswith('second\n')
 ///     True
 fn format_yaml(
     py: Python<'_>,
@@ -781,9 +781,8 @@ fn format_yaml(
     let bound = value.bind(py);
     let arena = PyStringArena::new();
     let yaml = py_to_yaml(py, bound, &arena)?;
-    let mut output = format_yaml_impl(py, &yaml, multi, width)?;
+    let output = format_yaml_impl(py, &yaml, multi, width)?;
     if multi {
-        output.push_str("...\n");
         return Ok(PyString::new(py, output.as_str()).unbind().into_any());
     }
     let body = output.strip_prefix("---\n").unwrap_or(output.as_str());
@@ -815,7 +814,7 @@ fn format_yaml(
 ///     >>> write_yaml({'foo': 1}, path='out.yml')
 ///     >>> Path('out.yml').exists()
 ///     True
-///     >>> write_yaml(['first', 'second'], multi=True)  # prints YAML ending with '...'
+///     >>> write_yaml(['first', 'second'], multi=True)  # prints two documents beginning with '---'
 fn write_yaml(
     py: Python<'_>,
     value: Py<PyAny>,
@@ -829,10 +828,8 @@ fn write_yaml(
     let arena = PyStringArena::new();
     let yaml = py_to_yaml(py, bound, &arena)?;
     let mut output = format_yaml_impl(py, &yaml, multi, width)?;
-    if multi {
-        output.push_str("...\n");
-    } else {
-        output.push_str("\n...\n");
+    if !multi {
+        output.push('\n');
     }
     let Some(path_obj) = path else {
         write_to_stdout(py, &output)?;
@@ -1881,8 +1878,8 @@ mod tests {
                 "expected multi-doc stream to start with document marker"
             );
             assert!(
-                yaml.trim_end().ends_with("..."),
-                "expected multi-doc stream to end with terminator"
+                !yaml.lines().any(|line| line == "..."),
+                "expected multi-doc stream to omit optional end markers"
             );
 
             let parsed = parse_yaml.call1((yaml.as_str(), true))?;
