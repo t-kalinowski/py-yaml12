@@ -4,11 +4,11 @@ guide-section: "Getting Started"
 ---
 
 ```{python}
-import textwrap
+from textwrap import dedent
 
 from yaml12 import parse_yaml
 
-first_example_text = textwrap.dedent(
+first_example_text = dedent(
     """\
     title: A Modern YAML parser written in Rust
     properties: [correct, safe, fast, simple]
@@ -83,16 +83,14 @@ string.
 Here is how `yaml12` resolves a few values that differ from YAML 1.1:
 
 ```{python}
-yaml_1_2 = textwrap.dedent(
-    """\
+yaml_1_2 = dedent("""\
     country: NO
     enabled: on
     port: 22:22
     leading_zero: 010
     octal: 0o10
     release_date: 2026-01-07
-    """
-)
+    """)
 
 assert parse_yaml(yaml_1_2) == {
     "country": "NO",
@@ -327,7 +325,7 @@ doc:
 Python result (`parse_yaml()` with defaults):
 
 ```{python}
-end_to_end_text = textwrap.dedent(
+end_to_end_text = dedent(
     """\
     doc:
       pets:
