@@ -98,7 +98,6 @@ def test_format_yaml_round_trips_multi_document_streams():
         bar:
           - 2
           - ~
-        ...
         """
     )
 
@@ -109,7 +108,7 @@ def test_format_yaml_round_trips_multi_document_streams():
 def test_format_yaml_multi_empty_sequence_emits_empty_document():
     encoded = yaml12.format_yaml([], multi=True)
 
-    assert encoded == "---\n...\n"
+    assert encoded == "---\n"
     assert yaml12.parse_yaml(encoded, multi=True) == [None]
 
 

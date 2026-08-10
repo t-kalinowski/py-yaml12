@@ -23,8 +23,7 @@ def test_parse_empty_is_none():
 def test_multi_roundtrip():
     docs = ["first", "second"]
     text = yaml12.format_yaml(docs, multi=True)
-    assert text.startswith("---")
-    assert text.rstrip().endswith("...")
+    assert text == "---\nfirst\n---\nsecond\n"
     parsed = yaml12.parse_yaml(text, multi=True)
     assert parsed == docs
 

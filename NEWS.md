@@ -1,5 +1,7 @@
 # yaml12 (development version)
 
+- `write_yaml()` and multi-document `format_yaml()` no longer add optional document end (`...`) markers. Written documents still begin with `---` and end with a newline.
+
 - `format_yaml()` and `write_yaml()` now wrap long strings at word boundaries. The new integer `width` argument defaults to 80 columns; pass `None` to disable wrapping.
 
 - YAML formatting now emits YAML 1.2-safe strings without unnecessary quotes, while still quoting strings that the core schema would resolve as another type. This includes arbitrary-sized decimal, octal, and hexadecimal integer strings.

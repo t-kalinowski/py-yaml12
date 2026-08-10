@@ -4,6 +4,12 @@ A YAML 1.2 parser/formatter for Python, implemented in Rust for speed
 and correctness. Built on the excellent
 [`saphyr`](https://github.com/saphyr-rs/saphyr) crate.
 
+Compared with YAML 1.1's type library, YAML 1.2's recommended core
+schema uses more conservative type inference for unquoted values. The
+[YAML 1.1 versus 1.2 quick
+reference](https://posit-dev.github.io/py-yaml12/user-guide/yaml-in-2-minutes.html#why-yaml-12)
+summarizes the differences.
+
 For almost every use case, `yaml12` lets you work with plain builtin
 Python types end to end: `dict`, `list`, `int`, `float`, `str`, and
 `None`. JSON is a subset of YAML 1.2, so all valid JSON is also valid

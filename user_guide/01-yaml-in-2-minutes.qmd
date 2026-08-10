@@ -42,6 +42,72 @@ YAML has three building blocks: **scalars** (single values),
 JSON is a subset of YAML 1.2, so all valid JSON is also valid YAML and
 parses the same way.
 
+## Why YAML 1.2? {#why-yaml-12}
+
+The most visible difference between YAML 1.1 and 1.2 is how plain
+(unquoted) scalars get their types. YAML 1.2's recommended core schema
+recognizes fewer special spellings, so ordinary words such as `yes` and
+`on` stay strings. `yaml12` implements YAML 1.2.2.
+
+### YAML 1.1 versus 1.2 quick reference
+
+The YAML 1.1 column below follows its type library. The YAML 1.2 column
+follows the recommended core schema. Individual parsers may support a
+subset of these rules or offer other schemas.
+
+| Plain YAML or feature | YAML 1.1 type library | YAML 1.2 core schema |
+|-----------------------|-----------------------|----------------------|
+| `yes`, `no`, `on`, `off`, `y`, `n` | Boolean | String |
+| `true`, `True`, `TRUE` (and false variants) | Boolean | Boolean |
+| `010` | Octal integer `8` | Decimal integer `10` |
+| `0o10` | String | Octal integer `8` |
+| `0b10` | Binary integer `2` | String |
+| `1:20` | Sexagesimal integer `80` | String |
+| `1_000` | Decimal integer `1000` | String |
+| `2026-01-07` | Timestamp | String |
+| `<<` mapping key | Merge mappings | Ordinary string key |
+
+YAML 1.2 also dropped `!!pairs`, `!!omap`, `!!set`, `!!timestamp`, and
+`!!binary` from its core type set. These explicit tags remain valid YAML
+syntax, but YAML 1.2 no longer assigns them core meanings. `yaml12`
+preserves them as `Yaml` values, and handlers let application code opt
+into their meaning. The [advanced YAML
+guide](tags-anchors-and-advanced-yaml.qmd#core-schema-tags) shows how
+this works.
+
+These changes make YAML 1.2 more conservative, not string-only. Plain
+`true`, `null`, and numeric forms still get typed values. For example,
+`10.23` is a number in both versions; quote it if it must remain a
+string.
+
+Here is how `yaml12` resolves a few values that differ from YAML 1.1:
+
+```{python}
+yaml_1_2 = textwrap.dedent(
+    """\
+    country: NO
+    enabled: on
+    port: 22:22
+    leading_zero: 010
+    octal: 0o10
+    release_date: 2026-01-07
+    """
+)
+
+assert parse_yaml(yaml_1_2) == {
+    "country": "NO",
+    "enabled": "on",
+    "port": "22:22",
+    "leading_zero": 10,
+    "octal": 8,
+    "release_date": "2026-01-07",
+}
+```
+
+See the [YAML 1.2
+changes](https://yaml.org/spec/1.2.2/ext/changes/) for the full
+specification-level list.
+
 ## A first example
 
 ```yaml
@@ -222,7 +288,7 @@ escapes, except for `''` which is parsed as a single `'`.
 Plain (unquoted) nodes can resolve to one of five types: string, int,
 float, bool, or null.
 
-- `true` / `false` -> `True` / `False`
+- `true` / `True` / `TRUE` and false variants -> `True` / `False`
 - `null`, `~`, or empty -> `None`
 - numbers: signed, decimal, scientific, hex (`0x`), octal (`0o`),
   `.inf`, `.nan` -> `int` or `float`
@@ -308,7 +374,8 @@ assert parsed == {
 - All JSON is valid YAML.
 - Sequences stay Python lists; there is no vector "simplification."
 - Block scalars (`|`, `>`) always produce strings.
-- Booleans are only `true`/`false`; `null` maps to `None`.
+- Boolean words are `true`/`false` and their `True`/`TRUE` and
+  `False`/`FALSE` variants; `null` maps to `None`.
 - Numbers can be signed, scientific, hex (`0x`), octal (`0o`), `.inf`,
   and `.nan`.
 
