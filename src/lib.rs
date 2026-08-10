@@ -22,10 +22,8 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 type Result<T> = PyResult<T>;
-type BuiltinTypes = (Py<PyAny>, Py<PyAny>, Py<PyAny>, Py<PyAny>);
 
 static ABC_TYPES: PyOnceLock<(Py<PyAny>, Py<PyAny>)> = PyOnceLock::new();
-static BUILTIN_TYPES: PyOnceLock<BuiltinTypes> = PyOnceLock::new();
 static BUILTINS_ID: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static EXPANDUSER: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 const GIL_RELEASE_MIN_PARSE_LEN: usize = 2048;
@@ -88,15 +86,7 @@ struct HandlerRegistry {
 }
 
 impl HandlerRegistry {
-    fn from_py(handlers: Option<&Bound<'_, PyAny>>) -> Result<Option<Self>> {
-        let Some(obj) = handlers else {
-            return Ok(None);
-        };
-
-        if obj.is_none() {
-            return Ok(None);
-        }
-
+    fn from_py(obj: &Bound<'_, PyAny>) -> Result<Option<Self>> {
         let dict: &Bound<'_, PyDict> = obj.cast().map_err(|_| {
             PyTypeError::new_err("`handlers` must be a dict mapping tag strings to callables")
         })?;
@@ -117,17 +107,13 @@ impl HandlerRegistry {
         }
 
         let dict = self.dict.bind(py);
-        let resolved = self.lookup_handler(dict, tag)?;
+        let resolved = Self::lookup_handler(dict, tag)?;
         let result = resolved.as_ref().map(|handler| handler.clone_ref(py));
         self.cache.borrow_mut().insert(tag.to_owned(), resolved);
         Ok(result)
     }
 
-    fn apply(&self, py: Python<'_>, handler: &Py<PyAny>, arg: Py<PyAny>) -> Result<Py<PyAny>> {
-        handler.call1(py, (arg,))
-    }
-
-    fn lookup_handler(&self, dict: &Bound<'_, PyDict>, tag: &str) -> Result<Option<Py<PyAny>>> {
+    fn lookup_handler(dict: &Bound<'_, PyDict>, tag: &str) -> Result<Option<Py<PyAny>>> {
         if let Some(handler) = dict.get_item(tag)? {
             Self::validate_callable(tag, &handler)?;
             return Ok(Some(handler.unbind()));
@@ -139,11 +125,9 @@ impl HandlerRegistry {
             .filter(|inner| !inner.is_empty())
         {
             let normalized = normalize_simple_tag_name_for_api(inner);
-            if normalized.as_ref() != tag {
-                if let Some(handler) = dict.get_item(normalized.as_ref())? {
-                    Self::validate_callable(normalized.as_ref(), &handler)?;
-                    return Ok(Some(handler.unbind()));
-                }
+            if let Some(handler) = dict.get_item(normalized.as_ref())? {
+                Self::validate_callable(normalized.as_ref(), &handler)?;
+                return Ok(Some(handler.unbind()));
             }
         }
 
@@ -199,32 +183,14 @@ impl HandlerRegistry {
     }
 }
 
-fn builtin_types(py: Python<'_>) -> Result<&BuiltinTypes> {
-    BUILTIN_TYPES.get_or_try_init(py, || -> Result<_> {
-        Ok((
-            py.get_type::<PyBool>().unbind().into(),
-            py.get_type::<PyInt>().unbind().into(),
-            py.get_type::<PyFloat>().unbind().into(),
-            py.get_type::<PyString>().unbind().into(),
-        ))
-    })
-}
-
 fn handler_registry_from_arg(
     py: Python<'_>,
     handlers: Option<&Py<PyAny>>,
 ) -> Result<Option<HandlerRegistry>> {
-    match handlers {
-        None => Ok(None),
-        Some(obj) => {
-            let bound = obj.bind(py);
-            if bound.is_none() {
-                Ok(None)
-            } else {
-                HandlerRegistry::from_py(Some(bound))
-            }
-        }
-    }
+    let Some(obj) = handlers else {
+        return Ok(None);
+    };
+    HandlerRegistry::from_py(obj.bind(py))
 }
 
 fn is_simple_local_tag_name(name: &str) -> bool {
@@ -247,28 +213,6 @@ fn normalize_simple_tag_name_for_api<'a>(tag: &'a str) -> Cow<'a, str> {
         normalized.push('!');
         normalized.push_str(tag);
         Cow::Owned(normalized)
-    }
-}
-
-#[pyfunction]
-fn _normalize_tag(py: Python<'_>, tag: Py<PyAny>) -> Result<Py<PyAny>> {
-    let bound = tag.bind(py);
-    let tag_str: &Bound<'_, PyString> = bound
-        .cast()
-        .map_err(|_| PyTypeError::new_err("`tag` must be a string"))?;
-
-    let text = tag_str.to_str()?;
-    let normalized_input = text
-        .strip_prefix("!<")
-        .and_then(|rest| rest.strip_suffix('>'))
-        .filter(|inner| !inner.is_empty())
-        .unwrap_or(text);
-
-    let normalized = normalize_simple_tag_name_for_api(normalized_input);
-    if normalized.as_ref() == text {
-        Ok(tag)
-    } else {
-        Ok(PyString::new(py, normalized.as_ref()).unbind().into_any())
     }
 }
 
@@ -836,7 +780,7 @@ fn format_yaml(
     let width = width_arg(width)?;
     let bound = value.bind(py);
     let arena = PyStringArena::new();
-    let yaml = py_to_yaml(py, bound, false, &arena)?;
+    let yaml = py_to_yaml(py, bound, &arena)?;
     let mut output = format_yaml_impl(py, &yaml, multi, width)?;
     if multi {
         output.push_str("...\n");
@@ -883,7 +827,7 @@ fn write_yaml(
     let width = width_arg(width)?;
     let bound = value.bind(py);
     let arena = PyStringArena::new();
-    let yaml = py_to_yaml(py, bound, false, &arena)?;
+    let yaml = py_to_yaml(py, bound, &arena)?;
     let mut output = format_yaml_impl(py, &yaml, multi, width)?;
     if multi {
         output.push_str("...\n");
@@ -896,11 +840,6 @@ fn write_yaml(
     };
 
     let bound_path = path_obj.bind(py);
-    if bound_path.is_none() {
-        write_to_stdout(py, &output)?;
-        return Ok(());
-    }
-
     if let Ok(path_str) = bound_path.cast::<PyString>() {
         let p = path_str.to_str()?;
         if p.as_bytes().first() == Some(&b'~') {
@@ -1235,12 +1174,8 @@ fn mapping_to_py(
     Ok(dict.unbind().into_any())
 }
 
-fn render_tag_cached<'a>(rendered: &'a mut Option<String>, tag: &Tag) -> &'a str {
-    rendered.get_or_insert_with(|| render_tag(tag)).as_str()
-}
-
 fn handler_result_needs_wrap(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<bool> {
-    if is_yaml_node(py, obj)? || obj.is_none() {
+    if obj.is_instance_of::<YamlNode>() || obj.is_none() {
         return Ok(false);
     }
 
@@ -1253,11 +1188,6 @@ fn handler_result_needs_wrap(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<b
         || obj.is_instance_of::<PyByteArray>()
     {
         return Ok(false);
-    }
-
-    let (mapping_cls, sequence_cls) = abc_types(py)?;
-    if obj.is_instance(mapping_cls.bind(py))? || obj.is_instance(sequence_cls.bind(py))? {
-        return hash_is_disabled(py, obj);
     }
 
     hash_is_disabled(py, obj)
@@ -1282,16 +1212,15 @@ fn convert_tagged(
     is_key: bool,
     handlers: Option<&HandlerRegistry>,
 ) -> Result<Py<PyAny>> {
-    let mut rendered_tag: Option<String> = None;
-    let rendered = render_tag_cached(&mut rendered_tag, tag);
-    let public_tag = normalize_simple_tag_name_for_api(rendered);
+    let rendered = render_tag(tag);
+    let public_tag = normalize_simple_tag_name_for_api(&rendered);
 
     if let Some(registry) = handlers {
         if let Some(handler) = registry.get_for_tag(py, public_tag.as_ref())? {
             // Convert inner node in value mode to avoid pre-wrapping keys; the tag logic below
             // handles hashability and tag preservation.
             let value = yaml_to_py(py, node, false, handlers)?;
-            let handled = registry.apply(py, &handler, value)?;
+            let handled = handler.call1(py, (value,))?;
             if is_key && handler_result_needs_wrap(py, handled.bind(py))? {
                 return make_yaml_node(py, handled, None);
             }
@@ -1328,11 +1257,6 @@ fn convert_tagged(
 fn make_yaml_node(py: Python<'_>, value: Py<PyAny>, tag: Option<&str>) -> Result<Py<PyAny>> {
     let tag = tag.map(|tag| PyString::new(py, tag).unbind());
     Ok(Py::new(py, YamlNode::new_internal(py, value, tag)?)?.into_any())
-}
-
-fn is_yaml_node(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Result<bool> {
-    let _ = py;
-    Ok(obj.is_instance_of::<YamlNode>())
 }
 
 fn abc_types(py: Python<'_>) -> Result<&(Py<PyAny>, Py<PyAny>)> {
@@ -1388,9 +1312,6 @@ fn emit_yaml_documents(
     multi: bool,
     width: Option<usize>,
 ) -> std::result::Result<String, saphyr::EmitError> {
-    if docs.is_empty() {
-        return Ok(String::new());
-    }
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
     emitter.multiline_strings(true);
@@ -1577,26 +1498,24 @@ impl PyStringArena {
     }
 }
 
-#[allow(clippy::only_used_in_recursion)]
 fn py_to_yaml<'a>(
     py: Python<'_>,
     obj: &Bound<'_, PyAny>,
-    is_key: bool,
     arena: &'a PyStringArena,
 ) -> Result<Yaml<'a>> {
     if obj.is_none() {
         return Ok(Yaml::Value(Scalar::Null));
     }
 
-    if is_yaml_node(py, obj)? {
+    if obj.is_instance_of::<YamlNode>() {
         let value_obj = obj.getattr("value")?;
         let tag_obj = obj.getattr("tag")?;
         if tag_obj.is_none() {
-            return py_to_yaml(py, &value_obj, is_key, arena);
+            return py_to_yaml(py, &value_obj, arena);
         }
         let tag_str = tag_obj.cast::<PyString>()?.to_str()?;
         let tag = parse_tag_string(tag_str)?;
-        let inner = py_to_yaml(py, &value_obj, is_key, arena)?;
+        let inner = py_to_yaml(py, &value_obj, arena)?;
         return if is_core_scalar_tag(&tag) {
             Ok(inner)
         } else {
@@ -1604,15 +1523,12 @@ fn py_to_yaml<'a>(
         };
     }
 
-    let ty = obj.get_type();
-    let (bool_type, int_type, float_type, str_type) = builtin_types(py)?;
-
-    if ty.is(bool_type.bind(py)) {
+    if obj.is_exact_instance_of::<PyBool>() {
         let b: bool = obj.extract()?;
         return Ok(Yaml::Value(Scalar::Boolean(b)));
     }
 
-    if ty.is(int_type.bind(py)) {
+    if obj.is_exact_instance_of::<PyInt>() {
         let i: i128 = obj.extract()?;
         if i < i64::MIN as i128 || i > i64::MAX as i128 {
             return Err(PyValueError::new_err("integer out of range for YAML"));
@@ -1620,12 +1536,12 @@ fn py_to_yaml<'a>(
         return Ok(Yaml::Value(Scalar::Integer(i as i64)));
     }
 
-    if ty.is(float_type.bind(py)) {
+    if obj.is_exact_instance_of::<PyFloat>() {
         let f: f64 = obj.extract()?;
         return Ok(float_to_yaml_scalar(f));
     }
 
-    if ty.is(str_type.bind(py)) {
+    if obj.is_exact_instance_of::<PyString>() {
         let s: &Bound<'_, PyString> = obj.cast()?;
         return Ok(Yaml::Value(Scalar::String(Cow::Borrowed(arena.borrow(s)?))));
     }
@@ -1636,31 +1552,28 @@ fn py_to_yaml<'a>(
         ));
     }
 
-    if obj.is_instance_of::<PyDict>() {
-        let dict: &Bound<'_, PyDict> = obj.cast()?;
+    if let Ok(dict) = obj.cast::<PyDict>() {
         let mut mapping = Mapping::with_capacity(dict.len());
         for (key_obj, value_obj) in dict.iter() {
-            let key_yaml = py_to_yaml(py, &key_obj, true, arena)?;
-            let value_yaml = py_to_yaml(py, &value_obj, false, arena)?;
+            let key_yaml = py_to_yaml(py, &key_obj, arena)?;
+            let value_yaml = py_to_yaml(py, &value_obj, arena)?;
             mapping.insert(key_yaml, value_yaml);
         }
         return Ok(Yaml::Mapping(mapping));
     }
 
-    if obj.is_instance_of::<PyList>() {
-        let list: &Bound<'_, PyList> = obj.cast()?;
+    if let Ok(list) = obj.cast::<PyList>() {
         let mut values = Vec::with_capacity(list.len());
         for item in list.iter() {
-            values.push(py_to_yaml(py, &item, false, arena)?);
+            values.push(py_to_yaml(py, &item, arena)?);
         }
         return Ok(Yaml::Sequence(values));
     }
 
-    if obj.is_instance_of::<PyTuple>() {
-        let tuple: &Bound<'_, PyTuple> = obj.cast()?;
+    if let Ok(tuple) = obj.cast::<PyTuple>() {
         let mut values = Vec::with_capacity(tuple.len());
         for item in tuple.iter() {
-            values.push(py_to_yaml(py, &item, false, arena)?);
+            values.push(py_to_yaml(py, &item, arena)?);
         }
         return Ok(Yaml::Sequence(values));
     }
@@ -1671,7 +1584,7 @@ fn py_to_yaml<'a>(
             let mut values = Vec::with_capacity(len);
             for idx in 0..len {
                 let item = seq.get_item(idx)?;
-                values.push(py_to_yaml(py, &item, false, arena)?);
+                values.push(py_to_yaml(py, &item, arena)?);
             }
             return Ok(Yaml::Sequence(values));
         }
@@ -1692,8 +1605,8 @@ fn py_to_yaml<'a>(
                     "mapping items must be (key, value) pairs",
                 ));
             }
-            let key_yaml = py_to_yaml(py, &tuple.get_item(0)?, true, arena)?;
-            let value_yaml = py_to_yaml(py, &tuple.get_item(1)?, false, arena)?;
+            let key_yaml = py_to_yaml(py, &tuple.get_item(0)?, arena)?;
+            let value_yaml = py_to_yaml(py, &tuple.get_item(1)?, arena)?;
             mapping.insert(key_yaml, value_yaml);
         }
         return Ok(Yaml::Mapping(mapping));
@@ -1707,7 +1620,7 @@ fn py_to_yaml<'a>(
         let iter = PyIterator::from_object(obj.as_any())?;
         let mut values = Vec::new();
         for item in iter {
-            values.push(py_to_yaml(py, &item?, false, arena)?);
+            values.push(py_to_yaml(py, &item?, arena)?);
         }
         return Ok(Yaml::Sequence(values));
     }
@@ -1806,7 +1719,6 @@ pub fn yaml12(_py: Python<'_>, m: &Bound<'_, PyModule>) -> Result<()> {
     m.add_function(wrap_pyfunction!(read_yaml, m)?)?;
     m.add_function(wrap_pyfunction!(format_yaml, m)?)?;
     m.add_function(wrap_pyfunction!(write_yaml, m)?)?;
-    m.add_function(wrap_pyfunction!(_normalize_tag, m)?)?;
     m.add_function(wrap_pyfunction!(_dbg_yaml, m)?)?;
     Ok(())
 }
