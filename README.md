@@ -50,7 +50,7 @@ To install the latest main branch without cloning:
 pip install git+https://github.com/posit-dev/py-yaml12.git
 ```
 
-Python 3.10+ and a Rust toolchain are required.
+Python 3.10 or newer is required. Building from source also requires Rust 1.83 or newer.
 
 ## Quick start
 

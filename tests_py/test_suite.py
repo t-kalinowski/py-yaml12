@@ -9,6 +9,10 @@ import pytest
 import yaml12
 
 CASE_ROOT = Path(__file__).resolve().parents[1] / "tests" / "yaml-test-suite" / "data"
+CONVERTED_CORE_TAGS = {
+    f"tag:yaml.org,2002:{suffix}"
+    for suffix in ("bool", "int", "float", "null", "str", "seq", "map")
+}
 
 
 def _load_yaml_multi(text: str):
@@ -58,6 +62,34 @@ def _strip_tags(obj):
     return obj
 
 
+def _collect_tags(obj):
+    tags = []
+    if isinstance(obj, yaml12.Yaml):
+        if obj.tag is not None:
+            tags.append(obj.tag)
+        tags.extend(_collect_tags(obj.value))
+    elif isinstance(obj, list):
+        for item in obj:
+            tags.extend(_collect_tags(item))
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            tags.extend(_collect_tags(key))
+            tags.extend(_collect_tags(value))
+    return tags
+
+
+def _extract_event_tags(case_dir: Path):
+    event_path = case_dir / "test.event"
+    if not event_path.exists():
+        return []
+    return [
+        token[1:-1]
+        for line in event_path.read_text(encoding="utf-8").splitlines()
+        for token in line.split()
+        if token.startswith("<") and token.endswith(">")
+    ]
+
+
 @pytest.mark.parametrize(
     "kind, case_dir",
     list(_iter_cases()),
@@ -79,6 +111,8 @@ def test_yaml_suite_cases(kind: Literal["json", "error", "parse_only"], case_dir
             (case_dir / "in.json").read_text(encoding="utf-8")
         )
         actual_stream = _load_yaml_multi(in_yaml)
+        expected_tags = set(_extract_event_tags(case_dir)) - CONVERTED_CORE_TAGS
+        assert set(_collect_tags(actual_stream)) == expected_tags
         assert _strip_tags(actual_stream) == expected_stream
         return
 

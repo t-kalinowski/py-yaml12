@@ -1,5 +1,7 @@
 # yaml12 (development version)
 
+- `parse_yaml()` and `read_yaml()` now preserve tags in the `tag:yaml.org,2002:` namespace that are not converted to built-in Python values as inert `Yaml` metadata.
+
 - `write_yaml()` and multi-document `format_yaml()` no longer add optional document end (`...`) markers. Written documents still begin with `---` and end with a newline.
 
 - `format_yaml()` and `write_yaml()` now wrap long strings at word boundaries. The new integer `width` argument defaults to 80 columns; pass `None` to disable wrapping.

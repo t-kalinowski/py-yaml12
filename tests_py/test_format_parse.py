@@ -675,6 +675,13 @@ def test_parse_yaml_preserves_tagged_mapping_keys():
     assert reparsed_key.value == "foo"
 
 
+def test_parse_yaml_round_trips_verbatim_tagged_mapping_key():
+    parsed = yaml12.parse_yaml("!<foo> key: value")
+
+    assert parsed == {Yaml("key", "!foo"): "value"}
+    assert yaml12.parse_yaml(yaml12.format_yaml(parsed)) == parsed
+
+
 def test_format_and_parse_roundtrip_non_specific_tag():
     tagged = Yaml("value", "!")
 
