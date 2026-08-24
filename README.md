@@ -178,7 +178,8 @@ To build or serve the docs locally:
 
 ```bash
 pip install --group docs
-uvx great-docs build       # or: uvx great-docs preview
+pip install --upgrade great-docs
+great-docs build       # or: great-docs preview
 ```
 
 ## Tests

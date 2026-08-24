@@ -22,15 +22,18 @@ you do not need the complete development environment.
 This project uses [Great Docs](https://posit-dev.github.io/great-docs/) for documentation.
 
 ```bash
+# Install or update Great Docs in the project environment
+.venv/bin/python -m pip install --upgrade great-docs
+
 # Build docs into great-docs/_site/
-uvx great-docs build
+.venv/bin/great-docs build
 
 # Preview with live reload
-uvx great-docs preview
+.venv/bin/great-docs preview
 ```
 
-`uvx` resolves Great Docs on demand. The project environment supplies the
-dependencies used by the rendered examples.
+The project environment supplies Great Docs and the dependencies used by the
+rendered examples.
 
 ## Running tests
 

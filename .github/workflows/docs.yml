@@ -17,8 +17,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - uses: astral-sh/setup-uv@v10.0.1
-
       - name: Build and install package
         uses: PyO3/maturin-action@v1
         with:
@@ -31,12 +29,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install dist/*.whl
           python -m pip install --group docs
+          python -m pip install --upgrade great-docs
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Build docs
-        run: QUARTO_PYTHON="$(command -v python)" uvx great-docs build
+        run: great-docs build
 
       - name: Save docs artifact
         uses: actions/upload-artifact@v7

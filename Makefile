@@ -17,11 +17,13 @@ test: develop
 
 docs: develop
 	$(PIP) install --group docs
-	QUARTO_PYTHON="$(CURDIR)/$(PY)" uvx great-docs build
+	$(PIP) install -U great-docs
+	$(VENV)/bin/great-docs build
 
 docs-serve: develop
 	$(PIP) install --group docs
-	QUARTO_PYTHON="$(CURDIR)/$(PY)" uvx great-docs preview
+	$(PIP) install -U great-docs
+	$(VENV)/bin/great-docs preview
 
 clean:
 	rm -rf $(VENV)
