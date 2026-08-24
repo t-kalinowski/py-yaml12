@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.14,<2.0"]
+requires = ["maturin>=1.15,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -20,6 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -29,6 +31,28 @@ classifiers = [
 ]
 keywords = ["yaml", "parser", "serializer", "rust", "pyo3", "abi3"]
 dynamic = ["version"]
+
+[dependency-groups]
+build = ["maturin>=1.15,<2.0"]
+test = [
+    { include-group = "build" },
+    "mypy>=2.3,<3",
+    "pyright>=1.1.411,<2",
+    "pytest>=9.1,<10",
+]
+docs = [
+    "css-inline>=0.21,<1",
+    "great-tables>=0.23,<1",
+    "jupyter>=1.1,<2",
+    "pandas>=2.3,<4",
+    "plotnine>=0.15,<1",
+    "pyyaml>=6.0,<7",
+    "ruyaml>=0.91,<1",
+]
+dev = [
+    { include-group = "test" },
+    { include-group = "docs" },
+]
 
 [project.urls]
 Homepage = "https://github.com/posit-dev/py-yaml12"

@@ -21,15 +21,15 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
-          args: --release --out dist
+          args: --locked --release --out dist
           sccache: true
 
       - name: Install package and documentation dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install dist/*.whl
-          python -m pip install great-docs jupyter
-          python -m pip install pandas pyyaml ruyaml plotnine great-tables css-inline
+          python -m pip install --group docs
+          python -m pip install --upgrade great-docs
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -52,6 +52,9 @@ jobs:
   publish-docs:
     name: "Publish Docs"
     runs-on: ubuntu-latest
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     needs: "build-docs"
     if: github.ref == 'refs/heads/main'
     permissions:

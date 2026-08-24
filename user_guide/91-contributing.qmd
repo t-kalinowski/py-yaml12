@@ -3,25 +3,37 @@ title: "Contributing"
 guide-section: "About"
 ---
 
+## Set up a development environment
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install --group dev
+.venv/bin/maturin develop --locked
+```
+
+The `test` and `docs` dependency groups can be installed separately when
+you do not need the complete development environment.
+
 ## Build or serve the docs locally
 
-This project uses [Great Docs](https://github.com/rich-iannone/great-docs) for documentation.
-
-First install Great Docs:
+This project uses [Great Docs](https://posit-dev.github.io/great-docs/) for documentation.
 
 ```bash
-pip install git+https://github.com/rich-iannone/great-docs.git
-```
+# Install or update Great Docs in the project environment
+.venv/bin/python -m pip install --upgrade great-docs
 
-Then from the project root:
-
-```bash
 # Build docs into great-docs/_site/
-great-docs build
+.venv/bin/great-docs build
 
 # Preview with live reload
-great-docs preview
+.venv/bin/great-docs preview
 ```
+
+The project environment supplies Great Docs and the dependencies used by the
+rendered examples.
 
 ## Running tests
 

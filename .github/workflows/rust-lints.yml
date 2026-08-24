@@ -11,6 +11,18 @@ permissions:
   contents: read
 
 jobs:
+  msrv:
+    name: Rust 1.83 minimum version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust 1.83
+        uses: dtolnay/rust-toolchain@1.83.0
+
+      - name: cargo check (--locked)
+        run: cargo check --locked
+
   rust-lints:
     runs-on: ubuntu-latest
     steps:

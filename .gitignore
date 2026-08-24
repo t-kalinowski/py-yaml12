@@ -80,3 +80,4 @@ site/
 
 # Great Docs build directory (ephemeral)
 great-docs/
+/_freeze/
