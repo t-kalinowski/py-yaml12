@@ -24,11 +24,23 @@ YAML and parses the same way.
 
 ## Installation
 
-The package ships prebuilt wheels for Python 3.10+ on common platforms. Install from PyPI:
+The package ships prebuilt wheels for CPython 3.10+ and PyPy 3.11. Install from PyPI:
 
 ```bash
 pip install py-yaml12
 ```
+
+Wheel coverage:
+
+| Platform | CPython architectures | PyPy 3.11 architectures |
+|---|---|---|
+| Linux (glibc) | x86-64, x86, ARM64, ARMv7, ppc64le, s390x | x86-64, x86 |
+| Linux (musl) | x86-64, x86, ARM64, ARMv7 | — |
+| macOS | Apple silicon, Intel | Apple silicon, Intel |
+| Windows | x86-64, x86, ARM64 | x86-64 |
+
+CPython 3.14 free-threaded builds use separate `cp314t` wheels for the
+same CPython platforms. Free-threading support is currently beta.
 
 ## Development install
 
@@ -41,6 +53,7 @@ cd py-yaml12
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
+pip install --group test
 pip install -e . --no-build-isolation
 ```
 
@@ -164,8 +177,8 @@ Online docs: https://posit-dev.github.io/py-yaml12/
 To build or serve the docs locally:
 
 ```bash
-pip install great-docs
-great-docs build       # or: great-docs preview
+pip install --group docs
+uvx great-docs build       # or: uvx great-docs preview
 ```
 
 ## Tests
@@ -181,3 +194,8 @@ cargo clippy
 .venv/bin/pip install -e . --no-build-isolation
 .venv/bin/python -m pytest tests_py
 ```
+
+## Release process
+
+See the [release checklist](https://github.com/posit-dev/py-yaml12/blob/main/RELEASE.md)
+for the version, artifact, tag, and publication checklist.

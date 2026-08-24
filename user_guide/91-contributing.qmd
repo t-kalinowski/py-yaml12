@@ -3,25 +3,34 @@ title: "Contributing"
 guide-section: "About"
 ---
 
-## Build or serve the docs locally
+## Set up a development environment
 
-This project uses [Great Docs](https://github.com/rich-iannone/great-docs) for documentation.
-
-First install Great Docs:
+From the repository root:
 
 ```bash
-pip install git+https://github.com/rich-iannone/great-docs.git
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install --group dev
+.venv/bin/maturin develop --locked
 ```
 
-Then from the project root:
+The `test` and `docs` dependency groups can be installed separately when
+you do not need the complete development environment.
+
+## Build or serve the docs locally
+
+This project uses [Great Docs](https://posit-dev.github.io/great-docs/) for documentation.
 
 ```bash
 # Build docs into great-docs/_site/
-great-docs build
+uvx great-docs build
 
 # Preview with live reload
-great-docs preview
+uvx great-docs preview
 ```
+
+`uvx` resolves Great Docs on demand. The project environment supplies the
+dependencies used by the rendered examples.
 
 ## Running tests
 

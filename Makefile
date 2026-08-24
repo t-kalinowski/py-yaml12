@@ -7,7 +7,7 @@ PIP := $(VENV)/bin/pip
 venv:
 	@test -d $(VENV) || python3 -m venv $(VENV)
 	$(PIP) install -U pip
-	$(PIP) install maturin pytest mkdocs
+	$(PIP) install --group test
 
 develop: venv
 	$(VENV)/bin/maturin develop --locked
@@ -15,11 +15,13 @@ develop: venv
 test: develop
 	$(PY) -m pytest tests_py
 
-docs: venv
-	$(PY) -m mkdocs build
+docs: develop
+	$(PIP) install --group docs
+	PATH="$(CURDIR)/$(VENV)/bin:$$PATH" uvx great-docs build
 
-docs-serve: venv
-	$(PY) -m mkdocs serve
+docs-serve: develop
+	$(PIP) install --group docs
+	PATH="$(CURDIR)/$(VENV)/bin:$$PATH" uvx great-docs preview
 
 clean:
 	rm -rf $(VENV)

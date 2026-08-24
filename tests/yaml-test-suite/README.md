@@ -1,30 +1,15 @@
 # yaml-test-suite data
 
-This directory vendors the generated `data/` from the upstream YAML test suite:
-https://github.com/yaml/yaml-test-suite (MIT License). Only the generated
-artifacts and `License` are kept; the rest of the upstream repo is omitted.
+This directory vendors generated test data from the upstream
+[YAML test suite](https://github.com/yaml/yaml-test-suite) under its MIT
+license. The snapshot was imported from upstream commit
+`ccfa74e56afb53da960847ff6e6976c0a0825709`.
 
-## Layout
-- `data/<CASE_ID>/`: canonical files for each test case (`in.yaml`, `out.yaml`
-  or `emit.yaml`, `in.json`, `test.event`, optional `error`, marker `===`).
-  Some emitter cases have multiple numbered subdirs; many entries under
-  `data/tags/` are symlinks pointing at the canonical cases.
-- `License`: upstream license for the test-suite content.
+Only the generated `data/` directory and upstream `License` are included.
+Each case contains the YAML input and the applicable expected JSON, emitted
+YAML, parse events, or error marker. `tests_py/test_suite.py` exercises the
+parser through the public `parse_yaml()` API.
 
-## How we use it
-`tests/testthat/test-yaml-test-suite.R` loads cases from `data/` and compares
-parser output against upstream expectations, including tag metadata, JSON
-round-trips, and libyaml event streams. Symlinks allow categories of cases
-(e.g., `tags/`) to share canonical inputs without duplicating content.
-
-## Regenerating
-From the package root:
-```
-Rscript tools/regenerate-yaml-test-suite-data.R
-# optionally pin a ref:
-YAML_TEST_SUITE_REF=<commit-ish> Rscript tools/regenerate-yaml-test-suite-data.R
-```
-This clones the upstream repo into a temporary directory, runs `make data`,
-replaces `tests/testthat/yaml-test-suite/data/`,
-and refreshes the `License`. Commit the resulting `data/` to keep tests
-deterministic and avoid network/build steps in CI.
+To update the snapshot, check out the intended upstream commit, run its
+documented data-generation process, replace `data/` and `License`, and update
+the commit above. Do not edit generated case files individually.
