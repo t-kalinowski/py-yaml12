@@ -17,11 +17,11 @@ test: develop
 
 docs: develop
 	$(PIP) install --group docs
-	PATH="$(CURDIR)/$(VENV)/bin:$$PATH" uvx great-docs build
+	QUARTO_PYTHON="$(CURDIR)/$(PY)" uvx great-docs build
 
 docs-serve: develop
 	$(PIP) install --group docs
-	PATH="$(CURDIR)/$(VENV)/bin:$$PATH" uvx great-docs preview
+	QUARTO_PYTHON="$(CURDIR)/$(PY)" uvx great-docs preview
 
 clean:
 	rm -rf $(VENV)

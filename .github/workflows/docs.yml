@@ -36,7 +36,7 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Build docs
-        run: uvx great-docs build
+        run: QUARTO_PYTHON="$(command -v python)" uvx great-docs build
 
       - name: Save docs artifact
         uses: actions/upload-artifact@v7
