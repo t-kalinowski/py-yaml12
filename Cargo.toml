@@ -1,6 +1,6 @@
 [package]
 name = "yaml12"
-version = "0.1.0"
+version = "0.2.0"
 description = "A modern YAML 1.2 parser and emitter for Python, written in Rust."
 edition = "2021"
 # `ordered-float` 5.5 requires Rust 1.90, so Cargo.lock retains 5.4.
