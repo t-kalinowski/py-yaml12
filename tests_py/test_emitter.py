@@ -220,6 +220,15 @@ def test_format_yaml_emits_empty_literal_lines_without_indentation() -> None:
     assert yaml12.parse_yaml(encoded) == {"body": value}
 
 
+def test_format_yaml_quotes_all_newline_values_in_nested_mappings() -> None:
+    value = {"result": {"text": "\n", "isError": False}}
+
+    encoded = yaml12.format_yaml(value)
+
+    assert encoded == 'result:\n  text: "\\n"\n  isError: false'
+    assert yaml12.parse_yaml(encoded) == value
+
+
 def test_format_yaml_indents_root_document_markers_in_literal_blocks() -> None:
     value = "foo\n---\nbar"
 
