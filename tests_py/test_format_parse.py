@@ -287,6 +287,26 @@ def test_parse_yaml_multiple_documents():
     assert yaml12.parse_yaml(yaml, multi=True) == [{"foo": 1}, {"bar": 2}]
 
 
+def test_parse_yaml_allows_indented_document_marker_text_in_plain_scalars():
+    yaml = textwrap.dedent(
+        """\
+        hello:
+          world: this is a string
+            --- still a string
+        """
+    )
+
+    assert yaml12.parse_yaml(yaml) == {
+        "hello": {"world": "this is a string --- still a string"}
+    }
+
+
+def test_parse_yaml_accepts_reserved_directive_names():
+    yaml = "%***\n---\nvalue\n"
+
+    assert yaml12.parse_yaml(yaml) == "value"
+
+
 def test_parse_yaml_ignores_later_document_errors_when_not_multi():
     yaml = textwrap.dedent(
         """\
