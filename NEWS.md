@@ -1,7 +1,10 @@
-# yaml12 (development version)
+# yaml12 0.2.0 (2026-08-24)
 
 - Prebuilt wheels now include macOS Intel, Windows ARM64, and CPython 3.14
   free-threaded builds. Free-threading support is currently beta.
+
+- The parser now accepts reserved directives such as `%***` and treats
+  indented `---` text as part of a multiline plain scalar.
 
 - `parse_yaml()` and `read_yaml()` now preserve tags in the `tag:yaml.org,2002:` namespace that are not converted to built-in Python values as inert `Yaml` metadata.
 

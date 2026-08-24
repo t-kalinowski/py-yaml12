@@ -10,15 +10,15 @@ guide-section: "About"
 
 ## Citation
 
-Kalinowski T (2025). *yaml12: Fast YAML 1.2 Parser and Formatter for
-Python*. Python package version 0.1.0.
+Kalinowski T (2026). *yaml12: Fast YAML 1.2 Parser and Formatter for
+Python*. Python package version 0.2.0.
 
 ```
-@software{kalinowski_yaml12_python_2025,
+@software{kalinowski_yaml12_python_2026,
   title   = {yaml12: Fast YAML 1.2 Parser and Formatter for Python},
   author  = {Tomasz Kalinowski},
-  year    = {2025},
-  version = {0.1.0},
+  year    = {2026},
+  version = {0.2.0},
   url     = {https://github.com/posit-dev/py-yaml12}
 }
 ```
