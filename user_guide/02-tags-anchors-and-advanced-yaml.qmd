@@ -204,6 +204,23 @@ assert parsed[Yaml(["a", "b"])] == "tuple"
 assert parsed[Yaml({"x": 1, "y": 2})] == "map-key"
 ```
 
+### Mapping-key collisions
+
+Duplicate mapping keys are unsupported. Do not rely on which value is
+retained when a YAML mapping repeats a key.
+
+YAML keys that are distinct can also compare equal after conversion to
+Python. For example, Python considers `True` equal to `1`, so the second
+value overwrites the first when these keys are inserted into a `dict`:
+
+```{python}
+parsed = parse_yaml("1: integer\ntrue: boolean\n")
+key = next(iter(parsed))
+
+assert type(key) is int
+assert parsed == {1: "boolean"}
+```
+
 ### Tagged mapping keys
 
 Handlers run on keys too, so a handler can turn tagged keys into
