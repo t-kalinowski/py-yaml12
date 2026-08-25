@@ -13,6 +13,12 @@ on:
       - 'v*'
   pull_request:
   workflow_dispatch:
+    inputs:
+      backfill_pypy_0_2_0:
+        description: Publish the missing PyPy wheels for version 0.2.0
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -362,8 +368,18 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'wheels-*/*'
+      - name: Verify 0.2.0 backfill artifacts
+        if: ${{ inputs.backfill_pypy_0_2_0 }}
+        shell: bash
+        run: |
+          while IFS= read -r artifact; do
+            case "$(basename "$artifact")" in
+              py_yaml12-0.2.0-*.whl|py_yaml12-0.2.0.tar.gz) ;;
+              *) echo "Unexpected artifact: $artifact"; exit 1 ;;
+            esac
+          done < <(find wheels-* -type f)
       - name: Publish to PyPI
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.backfill_pypy_0_2_0 }}
         uses: PyO3/maturin-action@v1
         with:
           command: upload
