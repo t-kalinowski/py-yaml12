@@ -47,6 +47,14 @@ jobs:
           args: --locked --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
+      - name: Build PyPy wheel
+        if: ${{ matrix.platform.target == 'x86_64' || matrix.platform.target == 'x86' }}
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --locked --release --out dist --interpreter pypy3.11
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: auto
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -60,7 +68,6 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install --group test
-          # `--find-interpreter` may build PyPy wheels too; install the stable-ABI wheel here.
           python -m pip install dist/*abi3*.whl
           python -m pytest tests_py
       - uses: actions/setup-python@v7
@@ -83,10 +90,6 @@ jobs:
         if: ${{ matrix.platform.target == 'x86_64' }}
         shell: bash
         run: |
-          if ! ls dist/*pp*.whl 1> /dev/null 2>&1; then
-            echo "No PyPy wheel found; skipping."
-            exit 0
-          fi
           python -m pip install -U pip
           python -m pip install -U pytest
           python -m pip install dist/*pp*.whl
@@ -234,9 +237,6 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: pypy-3.11
-      - uses: actions/setup-python@v7
-        with:
           python-version: "3.10"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -249,7 +249,6 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install --group test
-          # `--find-interpreter` may build PyPy wheels too; install the stable-ABI wheel here.
           python -m pip install dist/*abi3*.whl
           python -m pytest tests_py
       - uses: actions/setup-python@v7
@@ -271,13 +270,15 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: pypy-3.11
+      - name: Build PyPy wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --locked --release --out dist --interpreter python
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Test PyPy wheel
         shell: bash
         run: |
-          if ! ls dist/*pp*.whl 1> /dev/null 2>&1; then
-            echo "No PyPy wheel found; skipping."
-            exit 0
-          fi
           python -m pip install -U pip
           python -m pip install -U pytest
           python -m pip install dist/*pp*.whl
